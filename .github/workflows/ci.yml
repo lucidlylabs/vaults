@@ -58,10 +58,3 @@ jobs:
       - name: dependencies
         run: forge build --sizes
         continue-on-error: true
-      - name: Run scripts
-        run: |
-          ls -lsa
-          ls script/
-          for file in script/*; do
-            forge script $file
-          done
