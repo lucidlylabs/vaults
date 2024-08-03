@@ -1,0 +1,382 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>LogExpMath</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../../favicon.svg">
+        <link rel="shortcut icon" href="../../../favicon.png">
+        <link rel="stylesheet" href="../../../css/variables.css">
+        <link rel="stylesheet" href="../../../css/general.css">
+        <link rel="stylesheet" href="../../../css/chrome.css">
+        <link rel="stylesheet" href="../../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../../highlight.css">
+        <link rel="stylesheet" href="../../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../../../book.css">
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('light')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item "><a href="../../../index.html">Home</a></li><li class="chapter-item affix "><li class="part-title">src</li><li class="chapter-item expanded "><a href="../../../src/BalancerLibCode/index.html">❱ BalancerLibCode</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../../../src/BalancerLibCode/LogExpMath.sol/library.LogExpMath.html" class="active">LogExpMath</a></li></ol></li><li class="chapter-item "><a href="../../../src/Mocks/index.html">❱ Mocks</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../../../src/Mocks/MockRateProvider.sol/contract.MockRateProvider.html">MockRateProvider</a></li><li class="chapter-item "><a href="../../../src/Mocks/MockToken.sol/contract.MockToken.html">MockToken</a></li></ol></li><li class="chapter-item "><a href="../../../src/RateProvider/index.html">❱ RateProvider</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../../../src/RateProvider/ICurveStableSwapNG.sol/interface.ICurveStableSwapNG.html">ICurveStableSwapNG</a></li><li class="chapter-item "><a href="../../../src/RateProvider/IPufEth.sol/interface.IPufEth.html">IPufEth</a></li><li class="chapter-item "><a href="../../../src/RateProvider/IRateProvider.sol/interface.IRateProvider.html">IRateProvider</a></li><li class="chapter-item "><a href="../../../src/RateProvider/IStEth.sol/interface.IStEth.html">IStEth</a></li><li class="chapter-item "><a href="../../../src/RateProvider/PufMVTRateProvider.sol/contract.PufMVTRateProvider.html">PufMVTRateProvider</a></li><li class="chapter-item "><a href="../../../src/RateProvider/RateProvider.sol/contract.RateProvider.html">RateProvider</a></li></ol></li><li class="chapter-item "><a href="../../../src/Pool.sol/contract.Pool.html">Pool</a></li><li class="chapter-item "><a href="../../../src/PoolToken.sol/contract.PoolToken.html">PoolToken</a></li><li class="chapter-item "><a href="../../../src/Staking.sol/contract.MasterVault.html">MasterVault</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title"></h1>
+
+                    <div class="right-buttons">
+                        <a href="../../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/lucidlyfi/MasterVaultCode" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="logexpmath"><a class="header" href="#logexpmath">LogExpMath</a></h1>
+<p><a href="https://github.com/lucidlyfi/MasterVaultCode/blob/e89626c00c676e7b87a7121ad91042902a96f6d2/src/BalancerLibCode/LogExpMath.sol">Git Source</a></p>
+<p><strong>Authors:</strong>
+Fernando Martinelli - @fernandomartinelli, Sergio Yuhjtman - @sergioyuhjtman, Daniel Fernandez - @dmf7z</p>
+<p><em>Exponentiation and logarithm functions for 18 decimal fixed point numbers (both base and exponent/argument).</em></p>
+<p><em>forked from https://github.com/balancer/balancer-v2-monorepo/blob/599b0cd8f744e1eabef3600d79a2c2b0aea3ddcb/pkg/solidity-utils/contracts/math/LogExpMath.sol
+Exponentiation and logarithm with arbitrary bases (x^y and log_x(y)) are implemented by conversion to natural
+exponentiation and logarithm (where the base is Euler's number).</em></p>
+<h2 id="state-variables"><a class="header" href="#state-variables">State Variables</a></h2>
+<h3 id="one_18"><a class="header" href="#one_18">ONE_18</a></h3>
+<pre><code class="language-solidity">int256 constant ONE_18 = 1e18;
+</code></pre>
+<h3 id="one_20"><a class="header" href="#one_20">ONE_20</a></h3>
+<pre><code class="language-solidity">int256 constant ONE_20 = 1e20;
+</code></pre>
+<h3 id="one_36"><a class="header" href="#one_36">ONE_36</a></h3>
+<pre><code class="language-solidity">int256 constant ONE_36 = 1e36;
+</code></pre>
+<h3 id="max_natural_exponent"><a class="header" href="#max_natural_exponent">MAX_NATURAL_EXPONENT</a></h3>
+<pre><code class="language-solidity">int256 constant MAX_NATURAL_EXPONENT = 130e18;
+</code></pre>
+<h3 id="min_natural_exponent"><a class="header" href="#min_natural_exponent">MIN_NATURAL_EXPONENT</a></h3>
+<pre><code class="language-solidity">int256 constant MIN_NATURAL_EXPONENT = -41e18;
+</code></pre>
+<h3 id="ln_36_lower_bound"><a class="header" href="#ln_36_lower_bound">LN_36_LOWER_BOUND</a></h3>
+<pre><code class="language-solidity">int256 constant LN_36_LOWER_BOUND = ONE_18 - 1e17;
+</code></pre>
+<h3 id="ln_36_upper_bound"><a class="header" href="#ln_36_upper_bound">LN_36_UPPER_BOUND</a></h3>
+<pre><code class="language-solidity">int256 constant LN_36_UPPER_BOUND = ONE_18 + 1e17;
+</code></pre>
+<h3 id="mild_exponent_bound"><a class="header" href="#mild_exponent_bound">MILD_EXPONENT_BOUND</a></h3>
+<pre><code class="language-solidity">uint256 constant MILD_EXPONENT_BOUND = 2 ** 254 / uint256(ONE_20);
+</code></pre>
+<h3 id="x0"><a class="header" href="#x0">x0</a></h3>
+<pre><code class="language-solidity">int256 constant x0 = 128_000_000_000_000_000_000;
+</code></pre>
+<h3 id="a0"><a class="header" href="#a0">a0</a></h3>
+<pre><code class="language-solidity">int256 constant a0 = 38_877_084_059_945_950_922_200_000_000_000_000_000_000_000_000_000_000_000;
+</code></pre>
+<h3 id="x1"><a class="header" href="#x1">x1</a></h3>
+<pre><code class="language-solidity">int256 constant x1 = 64_000_000_000_000_000_000;
+</code></pre>
+<h3 id="a1"><a class="header" href="#a1">a1</a></h3>
+<pre><code class="language-solidity">int256 constant a1 = 6_235_149_080_811_616_882_910_000_000;
+</code></pre>
+<h3 id="x2"><a class="header" href="#x2">x2</a></h3>
+<pre><code class="language-solidity">int256 constant x2 = 3_200_000_000_000_000_000_000;
+</code></pre>
+<h3 id="a2"><a class="header" href="#a2">a2</a></h3>
+<pre><code class="language-solidity">int256 constant a2 = 7_896_296_018_268_069_516_100_000_000_000_000;
+</code></pre>
+<h3 id="x3"><a class="header" href="#x3">x3</a></h3>
+<pre><code class="language-solidity">int256 constant x3 = 1_600_000_000_000_000_000_000;
+</code></pre>
+<h3 id="a3"><a class="header" href="#a3">a3</a></h3>
+<pre><code class="language-solidity">int256 constant a3 = 888_611_052_050_787_263_676_000_000;
+</code></pre>
+<h3 id="x4"><a class="header" href="#x4">x4</a></h3>
+<pre><code class="language-solidity">int256 constant x4 = 800_000_000_000_000_000_000;
+</code></pre>
+<h3 id="a4"><a class="header" href="#a4">a4</a></h3>
+<pre><code class="language-solidity">int256 constant a4 = 298_095_798_704_172_827_474_000;
+</code></pre>
+<h3 id="x5"><a class="header" href="#x5">x5</a></h3>
+<pre><code class="language-solidity">int256 constant x5 = 400_000_000_000_000_000_000;
+</code></pre>
+<h3 id="a5"><a class="header" href="#a5">a5</a></h3>
+<pre><code class="language-solidity">int256 constant a5 = 5_459_815_003_314_423_907_810;
+</code></pre>
+<h3 id="x6"><a class="header" href="#x6">x6</a></h3>
+<pre><code class="language-solidity">int256 constant x6 = 200_000_000_000_000_000_000;
+</code></pre>
+<h3 id="a6"><a class="header" href="#a6">a6</a></h3>
+<pre><code class="language-solidity">int256 constant a6 = 738_905_609_893_065_022_723;
+</code></pre>
+<h3 id="x7"><a class="header" href="#x7">x7</a></h3>
+<pre><code class="language-solidity">int256 constant x7 = 100_000_000_000_000_000_000;
+</code></pre>
+<h3 id="a7"><a class="header" href="#a7">a7</a></h3>
+<pre><code class="language-solidity">int256 constant a7 = 271_828_182_845_904_523_536;
+</code></pre>
+<h3 id="x8"><a class="header" href="#x8">x8</a></h3>
+<pre><code class="language-solidity">int256 constant x8 = 50_000_000_000_000_000_000;
+</code></pre>
+<h3 id="a8"><a class="header" href="#a8">a8</a></h3>
+<pre><code class="language-solidity">int256 constant a8 = 164_872_127_070_012_814_685;
+</code></pre>
+<h3 id="x9"><a class="header" href="#x9">x9</a></h3>
+<pre><code class="language-solidity">int256 constant x9 = 25_000_000_000_000_000_000;
+</code></pre>
+<h3 id="a9"><a class="header" href="#a9">a9</a></h3>
+<pre><code class="language-solidity">int256 constant a9 = 128_402_541_668_774_148_407;
+</code></pre>
+<h3 id="x10"><a class="header" href="#x10">x10</a></h3>
+<pre><code class="language-solidity">int256 constant x10 = 12_500_000_000_000_000_000;
+</code></pre>
+<h3 id="a10"><a class="header" href="#a10">a10</a></h3>
+<pre><code class="language-solidity">int256 constant a10 = 113_314_845_306_682_631_683;
+</code></pre>
+<h3 id="x11"><a class="header" href="#x11">x11</a></h3>
+<pre><code class="language-solidity">int256 constant x11 = 6_250_000_000_000_000_000;
+</code></pre>
+<h3 id="a11"><a class="header" href="#a11">a11</a></h3>
+<pre><code class="language-solidity">int256 constant a11 = 106_449_445_891_785_942_956;
+</code></pre>
+<h2 id="functions"><a class="header" href="#functions">Functions</a></h2>
+<h3 id="pow"><a class="header" href="#pow">pow</a></h3>
+<p><em>Exponentiation (x^y) with unsigned 18 decimal fixed point base and exponent.
+Reverts if ln(x) * y is smaller than <code>MIN_NATURAL_EXPONENT</code>, or larger than <code>MAX_NATURAL_EXPONENT</code>.</em></p>
+<pre><code class="language-solidity">function pow(uint256 x, uint256 y) internal pure returns (uint256);
+</code></pre>
+<h3 id="exp"><a class="header" href="#exp">exp</a></h3>
+<p><em>Natural exponentiation (e^x) with signed 18 decimal fixed point exponent.
+Reverts if <code>x</code> is smaller than MIN_NATURAL_EXPONENT, or larger than <code>MAX_NATURAL_EXPONENT</code>.</em></p>
+<pre><code class="language-solidity">function exp(int256 x) internal pure returns (int256);
+</code></pre>
+<h3 id="log"><a class="header" href="#log">log</a></h3>
+<p><em>Logarithm (log(arg, base), with signed 18 decimal fixed point base and argument.</em></p>
+<pre><code class="language-solidity">function log(int256 arg, int256 base) internal pure returns (int256);
+</code></pre>
+<h3 id="ln"><a class="header" href="#ln">ln</a></h3>
+<p><em>Natural logarithm (ln(a)) with signed 18 decimal fixed point argument.</em></p>
+<pre><code class="language-solidity">function ln(int256 a) internal pure returns (int256);
+</code></pre>
+<h3 id="_ln"><a class="header" href="#_ln">_ln</a></h3>
+<p><em>Internal natural logarithm (ln(a)) with signed 18 decimal fixed point argument.</em></p>
+<pre><code class="language-solidity">function _ln(int256 a) private pure returns (int256);
+</code></pre>
+<h3 id="_ln_36"><a class="header" href="#_ln_36">_ln_36</a></h3>
+<p><em>Intrnal high precision (36 decimal places) natural logarithm (ln(x)) with signed 18 decimal fixed point argument,
+for x close to one.
+Should only be used if x is between LN_36_LOWER_BOUND and LN_36_UPPER_BOUND.</em></p>
+<pre><code class="language-solidity">function _ln_36(int256 x) private pure returns (int256);
+</code></pre>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../../src/BalancerLibCode/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../../src/Mocks/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../../src/BalancerLibCode/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../../src/Mocks/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+        <!-- Livereload script (if served using the cli tool) -->
+        <script>
+            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
+            const socket = new WebSocket(wsAddress);
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload();
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../../elasticlunr.min.js"></script>
+        <script src="../../../mark.min.js"></script>
+        <script src="../../../searcher.js"></script>
+
+        <script src="../../../clipboard.min.js"></script>
+        <script src="../../../highlight.js"></script>
+        <script src="../../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../../../solidity.min.js"></script>
+
+
+    </div>
+    </body>
+</html>
