@@ -1,6 +1,6 @@
 # Lucidly MasterVault Codebase
 
-This is a weight stableswap implementation. The arcitecture is forked from the yETH design - https://github.com/yearn/yETH/blob/main/whitepaper/derivation.pdf
+This is a weighted stableswap implementation. The arcitecture is forked from the yETH design - https://github.com/yearn/yETH/blob/main/whitepaper/derivation.pdf
 
 The following is deployed on Ethereum Mainnet.
 Deployed Addresses for PufMVT -
