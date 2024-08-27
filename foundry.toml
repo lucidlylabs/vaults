@@ -6,7 +6,7 @@
 src             = 'src'                   # The source directory
 test            = 'tests'                 # The test directory
 libs            = ['lib']                 # A list of library directories
-solc_version    = '0.8.24'                # Override for the solc version (setting this ignores `auto_detect_solc`)
+solc_version    = '0.8.26'                # Override for the solc version (setting this ignores `auto_detect_solc`)
 optimizer       = true                    # Enable or disable the solc optimizer
 optimizer_runs  = 100
 verbosity       = 3                       # The verbosity of tests
