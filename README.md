@@ -14,7 +14,7 @@ The PufEth MasterVault consists of the following tokens -
 
 | Contract                                            | Address                                    | Rate Provider Address                      |
 | --------------------------------------------------- | ------------------------------------------ | ------------------------------------------ |
-| PufEth                                              | 0x8dBE744F6558F36d34574a0a6eCA5A8dAa827235 | 0xC4EF2c4B4eD79CD7639AF070d4a6A82eEF5edd4f |
+| PufEth                                              | 0xD9A442856C234a39a81a089C06451EBAa4306a72 | 0xC4EF2c4B4eD79CD7639AF070d4a6A82eEF5edd4f |
 | Curve.fi pufETH/wstETH (pufETHwstE)                 | 0xEEda34A377dD0ca676b9511EE1324974fA8d980D | 0xC4EF2c4B4eD79CD7639AF070d4a6A82eEF5edd4f |
 | Curve.fi wETH/pufETH (wETHpufETH)                   | 0x39F5b252dE249790fAEd0C2F05aBead56D2088e1 | 0x60d4BCab4A8b1849Ca19F6B4a6EaB26A66496267 |
 | Morpho PufEthWeth Market 86 lltv (pufethweth86lltv) | 0xeC3B2CC4C6a8fC9a13620A91622483b56E2E6fD9 | 0x3C730BC8Ff9d7D51395c180c409597ae80A63056 |
