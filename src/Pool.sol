@@ -153,9 +153,6 @@ contract Pool is Ownable, ReentrancyGuard {
             if (tokens_[t] == address(0)) {
                 revert Pool__CannotBeZeroAddress();
             }
-            if (ERC20(tokens_[t]).decimals() != 18) {
-                revert Pool__InvalidDecimals();
-            }
             tokens[t] = tokens_[t];
             if (rateProviders_[t] == address(0)) {
                 revert Pool__CannotBeZeroAddress();
@@ -741,7 +738,6 @@ contract Pool is Ownable, ReentrancyGuard {
             packedVirtualBalances[t] = _packVirtualBalance(_virtualBalance, _rate, _packedWeight);
         }
 
-        if (ERC20(token_).decimals() != 18) revert Pool__InvalidParams();
         _rate = IRateProvider(rateProvider_).rate(token_);
         if (_rate == 0) revert Pool__NoRate();
 
