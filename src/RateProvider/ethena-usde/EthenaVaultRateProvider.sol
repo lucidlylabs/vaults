@@ -28,19 +28,8 @@ contract UsdeVaultRateProvider is IRateProvider {
     function rate(address token) external view returns (uint256) {
         if (token == SUSDE) {
             return ISUSDe(token).previewRedeem(PRECISION);
-        } else if (token == SDAISUSDE_CURVE) {
-            return _fetchCurveLpPrice(token);
+        } else {
+            revert RateProvider__InvalidParam();
         }
-    }
-
-    /// @dev index is the coin index of the usde derivative in the pool
-    function _fetchCurveLpPrice(address curvePoolAddress) internal view returns (uint256) {
-        ICurveStableSwapNG pool = ICurveStableSwapNG(curvePoolAddress);
-        uint256 virtualPrice = pool.get_virtual_price()
-            * FixedPointMathLib.min(pool.stored_rates()[0], pool.stored_rates()[1] * pool.price_oracle(0));
-    }
-
-    function _fetchPendleLpPrice(address pendleMarketAddress) internal view returns (uint256) {
-        return 0;
     }
 }
