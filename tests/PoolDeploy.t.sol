@@ -18,6 +18,7 @@ import {MockRateProvider} from "../src/Mocks/MockRateProvider.sol";
 import {PoolEstimator} from "./PoolEstimator.sol";
 import {LogExpMath} from "../src/BalancerLibCode/LogExpMath.sol";
 import {UsdeVaultRateProvider} from "../src/RateProvider/ethena-usde/EthenaVaultRateProvider.sol";
+import {StakeeaseVaultRateProvider} from "../src/RateProvider/stakeease-sxeth/StakeeaseVaultRateProvider.sol";
 
 contract PoolTest is Test {
     PoolToken poolToken;
@@ -84,6 +85,43 @@ contract PoolTest is Test {
         poolToken.setPool(address(pool));
         pool.setStaking(address(vault));
         pool.setSwapFeeRate(3 * PRECISION / 10_000); //  3bps
+        vault.setDepositFeeInBps(100);
+        vault.setProtocolFeeAddress(ADMIN_ADDRESS);
+
+        vm.stopPrank();
+    }
+
+    function testDeployNewVault1() public {
+        rateProvider = new StakeeaseVaultRateProvider();
+
+        vm.startPrank(ADMIN_ADDRESS);
+
+        address[] memory tokens = new address[](2);
+        uint256[] memory weights = new uint256[](2);
+        address[] memory rateProviders = new address[](2);
+
+        // tokens
+        tokens[0] = address(token0);
+        tokens[1] = address(token1);
+
+        // set weights
+        weights[0] = 90 * PRECISION / 100;
+        weights[1] = 10 * PRECISION / 100;
+
+        // set rateProviders
+        rateProviders[0] = address(rateProvider);
+        rateProviders[1] = address(rateProvider);
+
+        poolToken = new PoolToken("Lucidly sxETH Pool Token", "lsxETH-Token", 18, ADMIN_ADDRESS);
+
+        pool = new Pool(address(poolToken), 450 * PRECISION, tokens, rateProviders, weights, ADMIN_ADDRESS);
+
+        vault =
+            new MasterVault(address(poolToken), "Lucidly sxETH Vault", "sxETH-VS", 100, ADMIN_ADDRESS, ADMIN_ADDRESS);
+
+        poolToken.setPool(address(pool));
+        pool.setStaking(address(vault));
+        pool.setSwapFeeRate(3 * PRECISION / 10_000); // 3bps
         vault.setDepositFeeInBps(100);
         vault.setProtocolFeeAddress(ADMIN_ADDRESS);
 

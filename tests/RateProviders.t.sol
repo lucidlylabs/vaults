@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
 
 import {UsdeVaultRateProvider} from "../src/RateProvider/ethena-usde/EthenaVaultRateProvider.sol";
+import {StakeeaseVaultRateProvider} from "../src/RateProvider/stakeease-sxeth/StakeeaseVaultRateProvider.sol";
 import {IRateProvider} from "../src/RateProvider/IRateProvider.sol";
 
 contract RateProviders is Test {
@@ -15,12 +16,16 @@ contract RateProviders is Test {
     address private constant USDEDAI_CURVE = 0xF36a4BA50C603204c3FC6d2dA8b78A7b69CBC67d;
     address private constant USDE_LPT_PENDLE_MARCH2025 = 0xB451A36c8B6b2EAc77AD0737BA732818143A0E25;
     address private constant PENDLE_ORACLE = 0x9a9Fa8338dd5E5B2188006f1Cd2Ef26d921650C2;
+    address private constant WSXETH = 0x082F581C1105b4aaf2752D6eE5410984bd66Dd21;
+    address private constant SXETHWETH_CURVE = 0x8b0fb150FbA4fc25cd4f6F5bd8a8F6944ad65Af0;
 
     IRateProvider rateProvider;
+    IRateProvider sxethRateProvider;
 
     function setUp() public {
         vm.createSelectFork(vm.rpcUrl("http://127.0.0.1:8545"));
         rateProvider = new UsdeVaultRateProvider();
+        sxethRateProvider = new StakeeaseVaultRateProvider();
     }
 
     function testToken0Price() public view {
@@ -51,5 +56,15 @@ contract RateProviders is Test {
     function testInvalidParam() public {
         vm.expectRevert(bytes4(keccak256(bytes("RateProvider__InvalidParam()"))));
         rateProvider.rate(address(0x1));
+    }
+
+    function testSxeth0() public view {
+        uint256 rate = sxethRateProvider.rate(WSXETH);
+        console.log(rate);
+    }
+
+    function testSxeth1() public view {
+        uint256 rate = sxethRateProvider.rate(SXETHWETH_CURVE);
+        console.log(rate);
     }
 }
