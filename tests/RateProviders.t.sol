@@ -23,7 +23,7 @@ contract RateProviders is Test {
     IRateProvider sxethRateProvider;
 
     function setUp() public {
-        vm.createSelectFork(vm.rpcUrl("http://127.0.0.1:8545"));
+        vm.createSelectFork(vm.rpcUrl("https://eth.merkle.io"));
         rateProvider = new UsdeVaultRateProvider();
         sxethRateProvider = new StakeeaseVaultRateProvider();
     }

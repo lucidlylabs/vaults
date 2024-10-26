@@ -43,7 +43,7 @@ contract PoolTest is Test {
     uint256 private PRECISION = 1e18;
 
     function setUp() public {
-        vm.createSelectFork(vm.rpcUrl("http://127.0.0.1:8545"));
+        vm.createSelectFork(vm.rpcUrl("https://eth.merkle.io"));
     }
 
     function testDeployNewVault() public {

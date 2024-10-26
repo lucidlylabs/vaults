@@ -44,7 +44,7 @@ contract PoolSeeding is Test {
     address[] public rateProviders = new address[](5);
 
     function setUp() public {
-        vm.createSelectFork(vm.rpcUrl("http://127.0.0.1:8545"));
+        vm.createSelectFork(vm.rpcUrl("https://eth.merkle.io"));
 
         tokens[0] = address(token0);
         tokens[1] = address(token1);
