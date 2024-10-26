@@ -128,17 +128,17 @@ contract SeedSxETHPool is Script {
 
         uint256[] memory amounts = new uint256[](2);
 
-        // for (uint256 i = 0; i < 2; i++) {
-        //     address token = tokens[i];
-        //     require(MockToken(token).approve(address(pool), type(uint256).max), "could not approve");
-        //     uint256 amount = (total * weights[i]) / rateProvider.rate(token);
-        //     amounts[i] = amount;
+        for (uint256 i = 0; i < 2; i++) {
+            address token = tokens[i];
+            require(MockToken(token).approve(address(pool), type(uint256).max), "could not approve");
+            uint256 amount = (total * weights[i]) / rateProvider.rate(token);
+            amounts[i] = amount;
 
-        //     console.log("amount of token", MockToken(token).symbol(), " to be added =", amount);
-        //     console.log("balance =", MockToken(token).balanceOf(ADMIN_ADDRESS));
-        // }
+            console.log("amount of token", MockToken(token).symbol(), " to be added =", amount);
+            console.log("balance =", MockToken(token).balanceOf(ADMIN_ADDRESS));
+        }
 
-        // uint256 lpReceived = pool.addLiquidity(amounts, 0, ADMIN_ADDRESS);
+        uint256 lpReceived = pool.addLiquidity(amounts, 0, ADMIN_ADDRESS);
 
         poolToken.approve(address(vault), poolToken.balanceOf(ADMIN_ADDRESS));
         uint256 shares = vault.deposit(poolToken.balanceOf(ADMIN_ADDRESS), ADMIN_ADDRESS);
