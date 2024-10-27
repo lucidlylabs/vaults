@@ -99,6 +99,7 @@ contract Pool is Ownable, ReentrancyGuard {
     address public tokenAddress;
     address public stakingAddress;
     address[MAX_NUM_TOKENS] public tokens;
+    uint8[MAX_NUM_TOKENS] public tokenDecimals;
     address[MAX_NUM_TOKENS] public rateProviders;
     uint256[MAX_NUM_TOKENS] public packedVirtualBalances; // x_i = b_i r_i (96) | r_i (80) | w_i (20) | target w_i (20) | lower (20) | upper (20)
     bool public paused;
@@ -161,6 +162,10 @@ contract Pool is Ownable, ReentrancyGuard {
             if (weights_[t] == 0) {
                 revert Pool__InvalidParams();
             }
+
+            uint8 decimals = ERC20(tokens_[t]).decimals();
+            tokenDecimals[t] = decimals;
+
             uint256 _packedWeight = _packWeight(weights_[t], weights_[t], PRECISION, PRECISION);
 
             packedVirtualBalances[t] = _packVirtualBalance(0, 0, _packedWeight);
@@ -1362,6 +1367,19 @@ contract Pool is Ownable, ReentrancyGuard {
     /// @return tuple with pool product term (pi) and pool sum term (sigma)
     function _unpackPoolVirtualBalance(uint256 packed_) internal pure returns (uint256, uint256) {
         return (packed_ & POOL_VB_MASK, packed_ >> POOL_VB_SHIFT);
+    }
+
+    /// @notice adjust token amounts for decimals
+    /// @param amount_ amount of tokens
+    /// @param decimals_ token decimals
+    function _scaleAmount(uint256 amount_, uint8 decimals_) internal pure returns (uint256) {
+        if (decimals_ < 18) {
+            return amount_ * (10 ** (18 - decimals_));
+        } else if (decimals_ > 18) {
+            return amount_ / (10 ** (decimals_ - 18));
+        } else {
+            return amount_;
+        }
     }
 
     function _checkIfPaused() internal view {
