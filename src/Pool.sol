@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {Ownable} from "solady/auth/Ownable.sol";
-import {ERC20} from "solady/tokens/ERC20.sol";
-import {ReentrancyGuard} from "solady/utils/ReentrancyGuard.sol";
-import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
-import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
+import {console} from "../lib/forge-std/src/console.sol";
+import {Ownable} from "../lib/solady/src/auth/Ownable.sol";
+import {ERC20} from "../lib/solady/src/tokens/ERC20.sol";
+import {ReentrancyGuard} from "../lib/solady/src/utils/ReentrancyGuard.sol";
+import {FixedPointMathLib} from "../lib/solady/src/utils/FixedPointMathLib.sol";
+import {SafeTransferLib} from "../lib/solady/src/utils/SafeTransferLib.sol";
 
 import {IRateProvider} from "./RateProvider/IRateProvider.sol";
 import {LogExpMath} from "./BalancerLibCode/LogExpMath.sol";
@@ -170,6 +171,7 @@ contract Pool is Ownable, ReentrancyGuard {
             tokenDecimals[t] = ERC20(tokens_[t]).decimals();
 
             uint256 rateMultiplier = 10 ** (36 - decimals);
+
             rateMultipliers[t] = rateMultiplier;
 
             if (weights_[t] == 0) {

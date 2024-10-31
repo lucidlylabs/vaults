@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {Test} from "forge-std/Test.sol";
-import {console} from "forge-std/console.sol";
+import {Test} from "../lib/forge-std/src/Test.sol";
+import {console} from "../lib/forge-std/src/console.sol";
 
 import {UsdeVaultRateProvider} from "../src/RateProvider/ethena-usde/EthenaVaultRateProvider.sol";
 import {StakeeaseVaultRateProvider} from "../src/RateProvider/stakeease-sxeth/StakeeaseVaultRateProvider.sol";
@@ -18,9 +18,13 @@ contract RateProviders is Test {
     address private constant PENDLE_ORACLE = 0x9a9Fa8338dd5E5B2188006f1Cd2Ef26d921650C2;
     address private constant WSXETH = 0x082F581C1105b4aaf2752D6eE5410984bd66Dd21;
     address private constant SXETHWETH_CURVE = 0x8b0fb150FbA4fc25cd4f6F5bd8a8F6944ad65Af0;
+    address private constant SWBTCWBTC_CURVE = 0x73e4BeC1A111869F395cBB24F6676826BF86d905;
+    address private constant SWBTC = 0x8DB2350D78aBc13f5673A411D4700BCF87864dDE;
+    address private constant GAUNTLET_WBTC_CORE = 0x443df5eEE3196e9b2Dd77CaBd3eA76C3dee8f9b2;
 
     IRateProvider rateProvider;
     IRateProvider sxethRateProvider;
+    IRateProvider swbtcRateProvider;
 
     function setUp() public {
         vm.createSelectFork(vm.rpcUrl("https://eth.merkle.io"));
