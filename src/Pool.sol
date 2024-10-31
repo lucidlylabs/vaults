@@ -52,6 +52,7 @@ contract Pool is Ownable, ReentrancyGuard {
     error Pool__SlippageLimitExceeded();
     error Pool__NeedToDepositAtleastOneToken();
     error Pool__InitialDepositAmountMustBeNonZero();
+    error Pool__TokenDecimalCannotBeZero();
     error Pool__AmountsMustBeNonZero();
     error Pool__WeightOutOfBounds();
     error Pool__PoolIsFull();
@@ -100,6 +101,7 @@ contract Pool is Ownable, ReentrancyGuard {
     address public stakingAddress;
     address[MAX_NUM_TOKENS] public tokens;
     uint8[MAX_NUM_TOKENS] public tokenDecimals;
+    uint256[MAX_NUM_TOKENS] public rateMultipliers; // An array of: [10 ** (36 - tokens_[n].decimals()), ... for n in range(numTokens)]
     address[MAX_NUM_TOKENS] public rateProviders;
     uint256[MAX_NUM_TOKENS] public packedVirtualBalances; // x_i = b_i r_i (96) | r_i (80) | w_i (20) | target w_i (20) | lower (20) | upper (20)
     bool public paused;
@@ -155,16 +157,24 @@ contract Pool is Ownable, ReentrancyGuard {
                 revert Pool__CannotBeZeroAddress();
             }
             tokens[t] = tokens_[t];
+
             if (rateProviders_[t] == address(0)) {
                 revert Pool__CannotBeZeroAddress();
             }
             rateProviders[t] = rateProviders_[t];
+
+            uint8 decimals = ERC20(tokens_[t]).decimals();
+            if (decimals == 0) {
+                revert Pool__TokenDecimalCannotBeZero();
+            }
+            tokenDecimals[t] = ERC20(tokens_[t]).decimals();
+
+            uint256 rateMultiplier = 10 ** (36 - decimals);
+            rateMultipliers[t] = rateMultiplier;
+
             if (weights_[t] == 0) {
                 revert Pool__InvalidParams();
             }
-
-            uint8 decimals = ERC20(tokens_[t]).decimals();
-            tokenDecimals[t] = decimals;
 
             uint256 _packedWeight = _packWeight(weights_[t], weights_[t], PRECISION, PRECISION);
 
@@ -224,8 +234,11 @@ contract Pool is Ownable, ReentrancyGuard {
             _unpackVirtualBalance(packedVirtualBalances[tokenOut_]);
         uint256 _weightTimesNOfY = _unpackWeightTimesN(_packedWeightY, _numTokens);
 
-        uint256 _tokenInFee = (tokenInAmount_ * swapFeeRate) / PRECISION;
-        uint256 _changeInVirtualBalanceTokenIn = ((tokenInAmount_ - _tokenInFee) * _rateX) / PRECISION;
+        // adjust tokenInAmount_ to 18 decimals
+        uint256 _adjustedTokenInAmount = (tokenInAmount_ * rateMultipliers[tokenIn_]) / PRECISION;
+
+        uint256 _tokenInFee = (_adjustedTokenInAmount * swapFeeRate) / PRECISION;
+        uint256 _changeInVirtualBalanceTokenIn = ((_adjustedTokenInAmount - _tokenInFee) * _rateX) / PRECISION;
         uint256 _virtualBalanceX = _prevVirtualBalanceX + _changeInVirtualBalanceTokenIn;
 
         // update x_i and remove x_j from variables
@@ -252,7 +265,8 @@ contract Pool is Ownable, ReentrancyGuard {
             _packedWeightY
         );
 
-        uint256 _tokenOutAmount = ((_prevVirtualBalanceY - _virtualBalanceY) * PRECISION) / _rateY;
+        uint256 _adjustedTokenOutAmount = ((_prevVirtualBalanceY - _virtualBalanceY) * PRECISION) / _rateY;
+        uint256 _tokenOutAmount = _adjustedTokenOutAmount * PRECISION / rateMultipliers[tokenOut_]; // scaled to token's native decimals
         if (_tokenOutAmount < minTokenOutAmount_) {
             revert Pool__SlippageLimitExceeded();
         }
@@ -319,11 +333,12 @@ contract Pool is Ownable, ReentrancyGuard {
             uint256 __amount = amounts_[t];
 
             if (__amount > 0) {
+                uint256 _adjustedAmount = (__amount * rateMultipliers[t]) / PRECISION;
                 _tokens = _tokens | (FixedPointMathLib.rawAdd(t, 1) << _sh);
                 _sh = FixedPointMathLib.rawAdd(_sh, 8);
                 if (_virtualBalanceSum > 0 && _lowest > 0) {
                     (_prevVirtualBalance, _rate, _packedWeight) = _unpackVirtualBalance(packedVirtualBalances[t]);
-                    _lowest = FixedPointMathLib.min(__amount * _rate / _prevVirtualBalance, _lowest);
+                    _lowest = FixedPointMathLib.min(_adjustedAmount * _rate / _prevVirtualBalance, _lowest);
                 }
             } else {
                 _lowest = 0;
@@ -345,8 +360,9 @@ contract Pool is Ownable, ReentrancyGuard {
             if (t == _numTokens) break;
 
             uint256 __amount = amounts_[t];
+            uint256 _adjustedAmount = (__amount * rateMultipliers[t]) / PRECISION;
 
-            if (__amount == 0) {
+            if (_adjustedAmount == 0) {
                 if (!(_prevSupply > 0)) {
                     revert Pool__InitialDepositAmountMustBeNonZero();
                 }
@@ -355,7 +371,7 @@ contract Pool is Ownable, ReentrancyGuard {
 
             // update stored virtual balance
             (_prevVirtualBalance, _rate, _packedWeight) = _unpackVirtualBalance(packedVirtualBalances[t]);
-            uint256 _changeInVirtualBalance = (__amount * _rate) / PRECISION;
+            uint256 _changeInVirtualBalance = (_adjustedAmount * _rate) / PRECISION;
             _virtualBalance = _prevVirtualBalance + _changeInVirtualBalance;
             packedVirtualBalances[t] = _packVirtualBalance(_virtualBalance, _rate, _packedWeight);
 
@@ -480,9 +496,11 @@ contract Pool is Ownable, ReentrancyGuard {
             );
             _virtualBalanceSum = FixedPointMathLib.rawAdd(_virtualBalanceSum, vb);
 
-            uint256 amount = (dVb * PRECISION) / _rate;
-            if (amount < minAmounts_[t]) revert Pool__SlippageLimitExceeded();
-            SafeTransferLib.safeTransfer(tokens[t], receiver_, amount);
+            uint256 _adjustedAmount = (dVb * PRECISION) / _rate;
+            uint256 _amount = (_adjustedAmount * PRECISION) / rateMultipliers[t];
+
+            if (_amount < minAmounts_[t]) revert Pool__SlippageLimitExceeded();
+            SafeTransferLib.safeTransfer(tokens[t], receiver_, _amount);
         }
 
         packedPoolVirtualBalance = _packPoolVirtualBalance(_virtualBalanceProd, _virtualBalanceSum);
@@ -534,7 +552,9 @@ contract Pool is Ownable, ReentrancyGuard {
         uint256 _fee = _changeInVirtualBalance * swapFeeRate / 2 / PRECISION;
         _changeInVirtualBalance -= _fee;
         _virtualBalance += _fee;
-        uint256 _tokenOutAmount = (_changeInVirtualBalance * PRECISION) / _rate;
+
+        uint256 _adjustedTokenOutAmount = (_changeInVirtualBalance * PRECISION) / _rate;
+        uint256 _tokenOutAmount = _adjustedTokenOutAmount * PRECISION / rateMultipliers[token_];
         if (_tokenOutAmount < minTokenOutAmount_) {
             revert Pool__SlippageLimitExceeded();
         }
@@ -962,7 +982,8 @@ contract Pool is Ownable, ReentrancyGuard {
             (uint256 _prevVirtualBalance, uint256 _prevRate, uint256 _packedWeight) =
                 _unpackVirtualBalance(packedVirtualBalances[token]);
 
-            uint256 _rate = IRateProvider(provider).rate(tokens[token]);
+            uint256 _unadjustedRate = IRateProvider(provider).rate(tokens[token]);
+            uint256 _rate = (_unadjustedRate * rateMultipliers[t]) / PRECISION;
 
             if (!(_rate > 0)) revert Pool__InvalidRateProvided();
 
@@ -1367,19 +1388,6 @@ contract Pool is Ownable, ReentrancyGuard {
     /// @return tuple with pool product term (pi) and pool sum term (sigma)
     function _unpackPoolVirtualBalance(uint256 packed_) internal pure returns (uint256, uint256) {
         return (packed_ & POOL_VB_MASK, packed_ >> POOL_VB_SHIFT);
-    }
-
-    /// @notice adjust token amounts for decimals
-    /// @param amount_ amount of tokens
-    /// @param decimals_ token decimals
-    function _scaleAmount(uint256 amount_, uint8 decimals_) internal pure returns (uint256) {
-        if (decimals_ < 18) {
-            return amount_ * (10 ** (18 - decimals_));
-        } else if (decimals_ > 18) {
-            return amount_ / (10 ** (decimals_ - 18));
-        } else {
-            return amount_;
-        }
     }
 
     function _checkIfPaused() internal view {

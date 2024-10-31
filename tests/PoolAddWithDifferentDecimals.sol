@@ -13,23 +13,33 @@ import {PoolToken} from "../src/PoolToken.sol";
 import {MasterVault} from "../src/Staking.sol";
 import {MockToken} from "../src/Mocks/MockToken.sol";
 import {IRateProvider} from "../src/RateProvider/IRateProvider.sol";
+import {ICurveStableSwapNG} from "../src/RateProvider/ICurveStableSwapNG.sol";
 import {MockRateProvider} from "../src/Mocks/MockRateProvider.sol";
 import {PoolEstimator} from "./PoolEstimator.sol";
 import {LogExpMath} from "../src/BalancerLibCode/LogExpMath.sol";
 
 contract SampleRateProvider is IRateProvider {
+    //
+    error RateProvider__InvalidParam();
+
+    uint256 private PRECISION = 1e8;
+
     address private SWBTCWBTC_CURVE = 0x73e4BeC1A111869F395cBB24F6676826BF86d905;
     address private SWBTC = 0x8DB2350D78aBc13f5673A411D4700BCF87864dDE;
     address private GAUNTLET_WBTC_CORE = 0x443df5eEE3196e9b2Dd77CaBd3eA76C3dee8f9b2;
 
     function rate(address token) external view returns (uint256) {
         if (token == SWBTC) {
-            return 0;
+            return PRECISION;
         } else if (token == SWBTCWBTC_CURVE) {
-            return 0;
+            ICurveStableSwapNG pool = ICurveStableSwapNG(token);
+            uint256 virtualPrice = pool.get_virtual_price();
+            return virtualPrice * FixedPointMathLib.min(1, pool.price_oracle(0) * 1e18 / pool.stored_rates()[0]);
         } else if (token == GAUNTLET_WBTC_CORE) {
             return 0;
-        } else {}
+        } else {
+            revert RateProvider__InvalidParam();
+        }
     }
 }
 
@@ -74,9 +84,9 @@ contract PoolAdd is Test {
 
         mrp = new MockRateProvider();
 
-        mrp.setRate(address(token0), 1 * 10 ** decimals);
-        mrp.setRate(address(token1), 3 * 10 ** decimals);
-        mrp.setRate(address(token2), 3 * 10 ** decimals);
+        mrp.setRate(address(token0), 1 * PRECISION);
+        mrp.setRate(address(token1), 5 * PRECISION);
+        mrp.setRate(address(token2), 2 * PRECISION);
 
         // set tokens
         tokens[0] = address(token0);
