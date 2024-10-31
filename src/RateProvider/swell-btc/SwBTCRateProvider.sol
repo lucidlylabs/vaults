@@ -18,19 +18,19 @@ contract SWBTCRateProvider is IRateProvider {
     address private SWBTC = 0x8DB2350D78aBc13f5673A411D4700BCF87864dDE;
     address private GAUNTLET_WBTC_CORE = 0x443df5eEE3196e9b2Dd77CaBd3eA76C3dee8f9b2;
 
+    /// @dev scaling factor is 10 ** (18 - 8)
     function rate(address token) external view returns (uint256) {
         if (token == SWBTC) {
-            return ISWBTC(token).convertToAssets(PRECISION);
+            return ISWBTC(token).convertToAssets(PRECISION) * 1e10; // scaling factor is 10 ** (18 - 8)
         } else if (token == SWBTCWBTC_CURVE) {
             ICurveStableSwapNG pool = ICurveStableSwapNG(token);
             uint256 virtualPrice = pool.get_virtual_price();
             // price of the lp token in terms of swBTC
             uint256 rateInToken0 =
                 virtualPrice * FixedPointMathLib.min(1, pool.price_oracle(0) * 1e18 / pool.stored_rates()[0]);
-            uint256 unadjustedRate = rateInToken0 * ISWBTC(SWBTC).convertToAssets(PRECISION) / 1e18;
-            return (unadjustedRate * 1e28) / 1e18;
+            return (rateInToken0 * ISWBTC(SWBTC).convertToAssets(PRECISION) * 1e10) / 1e18;
         } else if (token == GAUNTLET_WBTC_CORE) {
-            return (IMetaMorpho(GAUNTLET_WBTC_CORE).convertToAssets(1e18) * 1e28) / 1e18;
+            return IMetaMorpho(GAUNTLET_WBTC_CORE).convertToAssets(1e18) * 1e10;
         } else {
             revert RateProvider__InvalidParam();
         }

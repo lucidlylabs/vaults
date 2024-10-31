@@ -101,7 +101,6 @@ contract Pool is Ownable, ReentrancyGuard {
     address public tokenAddress;
     address public stakingAddress;
     address[MAX_NUM_TOKENS] public tokens;
-    uint8[MAX_NUM_TOKENS] public tokenDecimals;
     uint256[MAX_NUM_TOKENS] public rateMultipliers; // An array of: [10 ** (36 - tokens_[n].decimals()), ... for n in range(numTokens)]
     address[MAX_NUM_TOKENS] public rateProviders;
     uint256[MAX_NUM_TOKENS] public packedVirtualBalances; // x_i = b_i r_i (96) | r_i (80) | w_i (20) | target w_i (20) | lower (20) | upper (20)
@@ -168,11 +167,7 @@ contract Pool is Ownable, ReentrancyGuard {
             if (decimals == 0) {
                 revert Pool__TokenDecimalCannotBeZero();
             }
-            tokenDecimals[t] = ERC20(tokens_[t]).decimals();
-
-            uint256 rateMultiplier = 10 ** (36 - decimals);
-
-            rateMultipliers[t] = rateMultiplier;
+            rateMultipliers[t] = 10 ** (36 - decimals);
 
             if (weights_[t] == 0) {
                 revert Pool__InvalidParams();
@@ -765,6 +760,7 @@ contract Pool is Ownable, ReentrancyGuard {
             packedVirtualBalances[t] = _packVirtualBalance(_virtualBalance, _rate, _packedWeight);
         }
 
+        // IRateProvider(provider).rate(address) is assumed to be 10**18 precision
         _rate = IRateProvider(rateProvider_).rate(token_);
         if (_rate == 0) revert Pool__NoRate();
 
@@ -984,8 +980,8 @@ contract Pool is Ownable, ReentrancyGuard {
             (uint256 _prevVirtualBalance, uint256 _prevRate, uint256 _packedWeight) =
                 _unpackVirtualBalance(packedVirtualBalances[token]);
 
-            uint256 _unadjustedRate = IRateProvider(provider).rate(tokens[token]);
-            uint256 _rate = (_unadjustedRate * rateMultipliers[t]) / PRECISION;
+            // IRateProvider(provider).rate(address) is assumed to be 10**18 precision
+            uint256 _rate = IRateProvider(provider).rate(tokens[token]);
 
             if (!(_rate > 0)) revert Pool__InvalidRateProvided();
 
