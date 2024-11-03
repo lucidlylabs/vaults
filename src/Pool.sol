@@ -232,7 +232,7 @@ contract Pool is Ownable, ReentrancyGuard {
         uint256 _weightTimesNOfY = _unpackWeightTimesN(_packedWeightY, _numTokens);
 
         // adjust tokenInAmount_ to 18 decimals
-        uint256 _adjustedTokenInAmount = (tokenInAmount_ * rateMultipliers[tokenIn_]) / PRECISION;
+        uint256 _adjustedTokenInAmount = FixedPointMathLib.mulWad(tokenInAmount_, rateMultipliers[tokenIn_]); // (tokenInAmount_ * rateMultipliers[tokenIn_]) / PRECISION
 
         uint256 _tokenInFee = (_adjustedTokenInAmount * swapFeeRate) / PRECISION;
         uint256 _changeInVirtualBalanceTokenIn = ((_adjustedTokenInAmount - _tokenInFee) * _rateX) / PRECISION;
@@ -262,7 +262,7 @@ contract Pool is Ownable, ReentrancyGuard {
             _packedWeightY
         );
 
-        uint256 _adjustedTokenOutAmount = ((_prevVirtualBalanceY - _virtualBalanceY) * PRECISION) / _rateY;
+        uint256 _adjustedTokenOutAmount = FixedPointMathLib.divWad(_prevVirtualBalanceY - _virtualBalanceY, _rateY);
         uint256 _tokenOutAmount = _adjustedTokenOutAmount * PRECISION / rateMultipliers[tokenOut_]; // scaled to token's native decimals
         if (_tokenOutAmount < minTokenOutAmount_) {
             revert Pool__SlippageLimitExceeded();
@@ -330,7 +330,7 @@ contract Pool is Ownable, ReentrancyGuard {
             uint256 __amount = amounts_[t];
 
             if (__amount > 0) {
-                uint256 _adjustedAmount = (__amount * rateMultipliers[t]) / PRECISION;
+                uint256 _adjustedAmount = FixedPointMathLib.mulWad(__amount, rateMultipliers[t]); // (__amount * rateMultipliers[t]) / PRECISION
                 _tokens = _tokens | (FixedPointMathLib.rawAdd(t, 1) << _sh);
                 _sh = FixedPointMathLib.rawAdd(_sh, 8);
                 if (_virtualBalanceSum > 0 && _lowest > 0) {
@@ -357,7 +357,7 @@ contract Pool is Ownable, ReentrancyGuard {
             if (t == _numTokens) break;
 
             uint256 __amount = amounts_[t];
-            uint256 _adjustedAmount = (__amount * rateMultipliers[t]) / PRECISION;
+            uint256 _adjustedAmount = FixedPointMathLib.mulWad(__amount, rateMultipliers[t]); // (__amount * rateMultipliers[t]) / PRECISION
 
             if (_adjustedAmount == 0) {
                 if (!(_prevSupply > 0)) {
@@ -494,7 +494,7 @@ contract Pool is Ownable, ReentrancyGuard {
             _virtualBalanceSum = FixedPointMathLib.rawAdd(_virtualBalanceSum, vb);
 
             uint256 _adjustedAmount = (dVb * PRECISION) / _rate;
-            uint256 _amount = (_adjustedAmount * PRECISION) / rateMultipliers[t];
+            uint256 _amount = FixedPointMathLib.sDivWad(_adjustedAmount, rateMultipliers[t]); // (_adjustedAmount * PRECISION) / rateMultiplers[t]
 
             if (_amount < minAmounts_[t]) revert Pool__SlippageLimitExceeded();
             SafeTransferLib.safeTransfer(tokens[t], receiver_, _amount);
@@ -764,12 +764,14 @@ contract Pool is Ownable, ReentrancyGuard {
         _rate = IRateProvider(rateProvider_).rate(token_);
         if (_rate == 0) revert Pool__NoRate();
 
-        _virtualBalance = (amount_ * _rate) / PRECISION;
+        uint256 _adjustedAmount = FixedPointMathLib.mulWad(amount_, (10 ** (36 - ERC20(token_).decimals())));
+        _virtualBalance = (_adjustedAmount * _rate) / PRECISION;
         _packedWeight = _packWeight(weight_, weight_, _lower, _upper);
 
         // set parameters for new token
         numTokens = _numTokens;
         tokens[_prevNumTokens] = token_;
+        rateMultipliers[_prevNumTokens] = 10 ** (36 - ERC20(token_).decimals());
         rateProviders[_prevNumTokens] = rateProvider_;
         packedVirtualBalances[_prevNumTokens] = _packVirtualBalance(_virtualBalance, _rate, _packedWeight);
 
@@ -830,7 +832,7 @@ contract Pool is Ownable, ReentrancyGuard {
         emit SetSwapFeeRate(feeRate_);
     }
 
-    /// @notice set safeft weight bands, if any user operation puts the weight outside of the bands, the transaction will revert
+    /// @notice set safety weight bands, if any user operation puts the weight outside of the bands, the transaction will revert
     /// @param tokens_ array of indices of the tokens to set the bands for
     /// @param lower_ array of widths of the lower band
     /// @param upper_ array of widths of the upper band

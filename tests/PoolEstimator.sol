@@ -112,8 +112,10 @@ contract PoolEstimator {
         uint256 prevVbOutputToken = pool.virtualBalance(outputToken) * rates[1] / pool.rate(outputToken);
         uint256 wnOutputToken = _unpackWeightNumTokens(packedWeights[outputToken], numTokens);
 
-        uint256 feeInputToken = tokenInAmount * pool.swapFeeRate() / PRECISION;
-        uint256 dVbInputToken = (tokenInAmount - feeInputToken) * rates[0] / PRECISION;
+        uint256 adjustedTokenInAmount = (tokenInAmount * pool.rateMultipliers(inputToken)) / PRECISION;
+
+        uint256 feeInputToken = adjustedTokenInAmount * pool.swapFeeRate() / PRECISION;
+        uint256 dVbInputToken = (adjustedTokenInAmount - feeInputToken) * rates[0] / PRECISION;
         uint256 vbInputToken = prevVbInputToken + dVbInputToken;
 
         // update x_i and remove x_j from variables
@@ -154,10 +156,11 @@ contract PoolEstimator {
             if (i == numTokens) break;
 
             if (amounts_[i] > 0) {
+                uint256 adjustedAmount = (amounts_[i] * pool.rateMultipliers(i)) / PRECISION;
                 tokens = tokens | (_add(i, 1) << sh);
                 sh = _add(sh, 8);
                 if (virtualBalanceSum > 0 && lowest > 0) {
-                    lowest = FixedPointMathLib.min(amounts_[i] * pool.rate(i) / pool.virtualBalance(i), lowest);
+                    lowest = FixedPointMathLib.min(adjustedAmount * pool.rate(i) / pool.virtualBalance(i), lowest);
                 }
             } else {
                 lowest = 0;
@@ -185,10 +188,11 @@ contract PoolEstimator {
 
             uint256 amount = amounts_[i];
             if (amount == 0) continue;
+            uint256 adjustedAmount = (amount * pool.rateMultipliers(i)) / PRECISION;
 
             uint256 prevVirtualBalance = pool.virtualBalance(i) * rates[j] / pool.rate(i);
 
-            uint256 deltaVirtualBalance = amount * rates[j] / PRECISION;
+            uint256 deltaVirtualBalance = adjustedAmount * rates[j] / PRECISION;
             uint256 virtualBalance = prevVirtualBalance + deltaVirtualBalance;
             balances[i] = virtualBalance;
 
@@ -252,7 +256,7 @@ contract PoolEstimator {
             uint256 prevBalance = pool.virtualBalance(i);
             uint256 dBalance = prevBalance * lpAmount / prevSupply;
             uint256 amount = dBalance * PRECISION / pool.rate(i);
-            amounts[i] = amount;
+            amounts[i] = FixedPointMathLib.sDivWad(amount, pool.rateMultipliers(i));
         }
 
         return amounts;
