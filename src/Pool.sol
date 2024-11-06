@@ -262,7 +262,8 @@ contract Pool is Ownable, ReentrancyGuard {
         );
 
         uint256 _adjustedTokenOutAmount = FixedPointMathLib.divWad(_prevVirtualBalanceY - _virtualBalanceY, _rateY);
-        uint256 _tokenOutAmount = _adjustedTokenOutAmount * PRECISION / rateMultipliers[tokenOut_]; // scaled to token's native decimals
+        uint256 _tokenOutAmount = FixedPointMathLib.divWad(_adjustedTokenOutAmount, rateMultipliers[tokenOut_]); // scaled to token's native decimals
+
         if (_tokenOutAmount < minTokenOutAmount_) {
             revert Pool__SlippageLimitExceeded();
         }
@@ -493,7 +494,7 @@ contract Pool is Ownable, ReentrancyGuard {
             _virtualBalanceSum = FixedPointMathLib.rawAdd(_virtualBalanceSum, vb);
 
             uint256 _adjustedAmount = (dVb * PRECISION) / _rate;
-            uint256 _amount = FixedPointMathLib.sDivWad(_adjustedAmount, rateMultipliers[t]); // (_adjustedAmount * PRECISION) / rateMultiplers[t]
+            uint256 _amount = FixedPointMathLib.divWad(_adjustedAmount, rateMultipliers[t]); // (_adjustedAmount * PRECISION) / rateMultiplers[t]
 
             if (_amount < minAmounts_[t]) revert Pool__SlippageLimitExceeded();
             SafeTransferLib.safeTransfer(tokens[t], receiver_, _amount);
@@ -550,7 +551,7 @@ contract Pool is Ownable, ReentrancyGuard {
         _virtualBalance += _fee;
 
         uint256 _adjustedTokenOutAmount = (_changeInVirtualBalance * PRECISION) / _rate;
-        uint256 _tokenOutAmount = _adjustedTokenOutAmount * PRECISION / rateMultipliers[token_];
+        uint256 _tokenOutAmount = FixedPointMathLib.divWad(_adjustedTokenOutAmount, rateMultipliers[token_]); // _adjustedTokenOutAmount * PRECISION / rateMultipliers[token_]
         if (_tokenOutAmount < minTokenOutAmount_) {
             revert Pool__SlippageLimitExceeded();
         }
@@ -763,7 +764,7 @@ contract Pool is Ownable, ReentrancyGuard {
         _rate = IRateProvider(rateProvider_).rate(token_);
         if (_rate == 0) revert Pool__NoRate();
 
-        uint256 _adjustedAmount = FixedPointMathLib.mulWad(amount_, (10 ** (36 - ERC20(token_).decimals())));
+        uint256 _adjustedAmount = FixedPointMathLib.mulWad(amount_, (10 ** (36 - ERC20(token_).decimals()))); // (amount_ *  (10 ** (36 - ERC20(token_).decimals()))) / PRECISION
         _virtualBalance = (_adjustedAmount * _rate) / PRECISION;
         _packedWeight = _packWeight(weight_, weight_, _lower, _upper);
 
@@ -816,7 +817,8 @@ contract Pool is Ownable, ReentrancyGuard {
     function skim(uint256 token_, address receiver_) external onlyOwner {
         if (token_ >= numTokens) revert Pool__IndexOutOfBounds();
         (uint256 _virtualBalance, uint256 _rate,) = _unpackVirtualBalance(packedVirtualBalances[token_]);
-        uint256 _expected = (_virtualBalance * PRECISION) / _rate + 1;
+        uint256 _adjustedExpected = (_virtualBalance * PRECISION) / _rate + 1;
+        uint256 _expected = FixedPointMathLib.divWad(_adjustedExpected, rateMultipliers[token_]);
         address _token = tokens[token_];
         uint256 _actual = ERC20(_token).balanceOf(address(this));
         if (_actual <= _expected) revert Pool__NoSurplus();
