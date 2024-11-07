@@ -136,7 +136,8 @@ contract PoolEstimator {
             prevVbOutputToken * PRECISION / prevVbSum, vbOutputToken * PRECISION / vbSum, packedWeights[outputToken]
         );
 
-        return (prevVbOutputToken - vbOutputToken) * PRECISION / rates[1];
+        uint256 adjustedTokenOutAmount = (prevVbOutputToken - vbOutputToken) * PRECISION / rates[1];
+        return (adjustedTokenOutAmount * PRECISION) / pool.rateMultipliers(outputToken);
     }
 
     function getAddLp(uint256[] memory amounts_) external view returns (uint256) {
@@ -256,7 +257,7 @@ contract PoolEstimator {
             uint256 prevBalance = pool.virtualBalance(i);
             uint256 dBalance = prevBalance * lpAmount / prevSupply;
             uint256 amount = dBalance * PRECISION / pool.rate(i);
-            amounts[i] = FixedPointMathLib.sDivWad(amount, pool.rateMultipliers(i));
+            amounts[i] = FixedPointMathLib.divWad(amount, pool.rateMultipliers(i));
         }
 
         return amounts;
@@ -309,7 +310,7 @@ contract PoolEstimator {
             }
         }
 
-        return tokenOutAmount;
+        return (tokenOutAmount * PRECISION) / pool.rateMultipliers(token);
     }
 
     function getVirtualBalance(uint256[] memory amounts_) external view returns (uint256) {
