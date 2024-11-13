@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.17;
+pragma solidity >=0.8.20;
 
 import {Script} from "forge-std/Script.sol";
 
@@ -16,4 +16,24 @@ import {PoolEstimator} from "../tests/PoolEstimator.sol";
 import {LogExpMath} from "../src/BalancerLibCode/LogExpMath.sol";
 import {IRateProvider} from "../src/RateProvider/IRateProvider.sol";
 
-contract DepositAggregator {}
+contract DepositAggregator {
+    function deposit(
+        address[] calldata tokens,
+        uint256[] calldata tokenAmounts,
+        address receiver,
+        uint256 minLpAmount,
+        address poolAddress
+    ) external {
+        require(tokens.length == tokenAmounts.length, "tokens and tokenAmounts should be of same length");
+
+        for (uint256 i = 0; i < tokenAmounts.length; i++) {
+            SafeTransferLib.safeTransferFrom(tokens[i], msg.sender, address(this), tokenAmounts[i]);
+            ERC20(tokens[i]).approve(poolAddress, tokenAmounts[i]);
+        }
+
+        address vaultAddress = Pool(poolAddress).stakingAddress();
+        uint256 lpReceived = Pool(poolAddress).addLiquidity(tokenAmounts, minLpAmount, address(this));
+        PoolToken(Pool(poolAddress).tokenAddress()).approve(vaultAddress, lpReceived);
+        Vault(vaultAddress).deposit(lpReceived, receiver);
+    }
+}
