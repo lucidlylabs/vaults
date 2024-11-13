@@ -11,7 +11,7 @@ import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 
 import {Pool} from "../src/Pool.sol";
 import {PoolToken} from "../src/PoolToken.sol";
-import {MasterVault} from "../src/Staking.sol";
+import {Vault} from "../src/Vault.sol";
 import {MockToken} from "../src/Mocks/MockToken.sol";
 import {MockRateProvider} from "../src/Mocks/MockRateProvider.sol";
 import {PoolEstimator} from "./PoolEstimator.sol";
@@ -20,7 +20,7 @@ import {LogExpMath} from "../src/BalancerLibCode/LogExpMath.sol";
 contract PoolTest is Test {
     Pool pool;
     PoolToken poolToken;
-    MasterVault staking;
+    Vault staking;
     MockRateProvider mrp;
 
     uint256 public constant PRECISION = 1e18;

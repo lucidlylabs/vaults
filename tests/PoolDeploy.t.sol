@@ -11,7 +11,7 @@ import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 
 import {Pool} from "../src/Pool.sol";
 import {PoolToken} from "../src/PoolToken.sol";
-import {MasterVault} from "../src/Staking.sol";
+import {Vault} from "../src/Vault.sol";
 import {MockToken} from "../src/Mocks/MockToken.sol";
 import {IRateProvider} from "../src/RateProvider/IRateProvider.sol";
 import {MockRateProvider} from "../src/Mocks/MockRateProvider.sol";
@@ -23,7 +23,7 @@ import {StakeeaseVaultRateProvider} from "../src/RateProvider/stakeease-sxeth/St
 contract PoolTest is Test {
     PoolToken poolToken;
     Pool pool;
-    MasterVault vault;
+    Vault vault;
     IRateProvider rateProvider;
 
     address private ADMIN_ADDRESS = 0x1b514df3413DA9931eB31f2Ab72e32c0A507Cad5;
@@ -80,7 +80,7 @@ contract PoolTest is Test {
 
         pool = new Pool(address(poolToken), 450 * PRECISION, tokens, rateProviders, weights, ADMIN_ADDRESS);
 
-        vault = new MasterVault(address(poolToken), "MasterVault token", "MVT", 100, ADMIN_ADDRESS, ADMIN_ADDRESS);
+        vault = new Vault(address(poolToken), "MasterVault token", "MVT", 100, ADMIN_ADDRESS, ADMIN_ADDRESS);
 
         poolToken.setPool(address(pool));
         pool.setStaking(address(vault));
@@ -116,8 +116,7 @@ contract PoolTest is Test {
 
         pool = new Pool(address(poolToken), 450 * PRECISION, tokens, rateProviders, weights, ADMIN_ADDRESS);
 
-        vault =
-            new MasterVault(address(poolToken), "Lucidly sxETH Vault", "sxETH-VS", 100, ADMIN_ADDRESS, ADMIN_ADDRESS);
+        vault = new Vault(address(poolToken), "Lucidly sxETH Vault", "sxETH-VS", 100, ADMIN_ADDRESS, ADMIN_ADDRESS);
 
         poolToken.setPool(address(pool));
         pool.setStaking(address(vault));

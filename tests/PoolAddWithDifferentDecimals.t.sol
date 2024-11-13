@@ -10,7 +10,7 @@ import {FixedPointMathLib} from "../lib/solady/src/utils/FixedPointMathLib.sol";
 
 import {Pool} from "../src/Pool.sol";
 import {PoolToken} from "../src/PoolToken.sol";
-import {MasterVault} from "../src/Staking.sol";
+import {Vault} from "../src/Vault.sol";
 import {MockToken} from "../src/Mocks/MockToken.sol";
 import {IRateProvider} from "../src/RateProvider/IRateProvider.sol";
 import {SWBTCRateProvider} from "../src/RateProvider/swell-btc/SwBTCRateProvider.sol";
@@ -23,7 +23,7 @@ import {LogExpMath} from "../src/BalancerLibCode/LogExpMath.sol";
 contract PoolAdd is Test {
     Pool pool;
     PoolToken poolToken;
-    MasterVault vault;
+    Vault vault;
     IRateProvider rp;
 
     uint256 public constant PRECISION = 1e18;
@@ -81,7 +81,7 @@ contract PoolAdd is Test {
         pool = new Pool(address(poolToken), amplification, tokens, rateProviders, weights, jake);
 
         // deploy staking contract
-        vault = new MasterVault(address(poolToken), "XYZ Vault Share", "XYZ-VST", 100, jake, jake);
+        vault = new Vault(address(poolToken), "XYZ Vault Share", "XYZ-VST", 100, jake, jake);
 
         // set staking on pool
         vm.startPrank(jake);
