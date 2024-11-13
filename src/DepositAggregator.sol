@@ -23,7 +23,7 @@ contract DepositAggregator {
         address receiver,
         uint256 minLpAmount,
         address poolAddress
-    ) external {
+    ) external returns (uint256 shares) {
         require(tokens.length == tokenAmounts.length, "tokens and tokenAmounts should be of same length");
 
         for (uint256 i = 0; i < tokenAmounts.length; i++) {
@@ -34,6 +34,6 @@ contract DepositAggregator {
         address vaultAddress = Pool(poolAddress).stakingAddress();
         uint256 lpReceived = Pool(poolAddress).addLiquidity(tokenAmounts, minLpAmount, address(this));
         PoolToken(Pool(poolAddress).tokenAddress()).approve(vaultAddress, lpReceived);
-        Vault(vaultAddress).deposit(lpReceived, receiver);
+        shares = Vault(vaultAddress).deposit(lpReceived, receiver);
     }
 }
