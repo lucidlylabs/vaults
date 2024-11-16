@@ -4,6 +4,7 @@ pragma solidity >=0.8.20;
 import {Script} from "forge-std/Script.sol";
 
 import {ERC20} from "solady/tokens/ERC20.sol";
+import {LibSort} from "solady/utils/LibSort.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 
@@ -16,7 +17,7 @@ import {PoolEstimator} from "../tests/PoolEstimator.sol";
 import {LogExpMath} from "../src/BalancerLibCode/LogExpMath.sol";
 import {IRateProvider} from "../src/RateProvider/IRateProvider.sol";
 
-contract DepositAggregator {
+contract Aggregator {
     function deposit(
         address[] calldata tokens,
         uint256[] calldata tokenAmounts,
@@ -35,5 +36,13 @@ contract DepositAggregator {
         uint256 lpReceived = Pool(poolAddress).addLiquidity(tokenAmounts, minLpAmount, address(this));
         PoolToken(Pool(poolAddress).tokenAddress()).approve(vaultAddress, lpReceived);
         shares = Vault(vaultAddress).deposit(lpReceived, receiver);
+    }
+
+    function redeemBalanced(address poolAddress, uint256 sharesToBurn, uint256[] calldata minAmounts, address receiver)
+        external
+    {
+        Vault vault = Vault(Pool(poolAddress).stakingAddress());
+        uint256 lpRedeemed = vault.redeem(sharesToBurn, address(this), msg.sender);
+        Pool(poolAddress).removeLiquidity(lpRedeemed, minAmounts, receiver);
     }
 }

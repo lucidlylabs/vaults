@@ -16,13 +16,14 @@ import {IRateProvider} from "../src/RateProvider/IRateProvider.sol";
 import {MockRateProvider} from "../src/Mocks/MockRateProvider.sol";
 import {PoolEstimator} from "./PoolEstimator.sol";
 import {LogExpMath} from "../src/BalancerLibCode/LogExpMath.sol";
-import {DepositAggregator} from "../src/DepositAggregator.sol";
+import {Aggregator} from "../src/Aggregator.sol";
 
-contract DepositAggregatorTest is Test {
+contract AggregatorTest is Test {
     Pool pool;
     PoolToken poolToken;
     Vault vault;
     IRateProvider rp;
+    Aggregator agg;
 
     uint256 public constant PRECISION = 1e18;
     uint256 public constant MAX_NUM_TOKENS = 32;
@@ -31,9 +32,9 @@ contract DepositAggregatorTest is Test {
     uint256 private decimals = 8;
     address public poolOwner;
 
-    MockToken public token0 = new MockToken("name0", "symbol0", 18);
-    MockToken public token1 = new MockToken("name1", "symbol1", 8);
-    MockToken public token2 = new MockToken("name2", "symbol2", 18);
+    MockToken public token0 = new MockToken("name0", "symbol0", 8);
+    MockToken public token1 = new MockToken("name1", "symbol1", 18);
+    MockToken public token2 = new MockToken("name2", "symbol2", 6);
 
     address[] public tokens = new address[](3);
     uint256[] public weights = new uint256[](3);
@@ -47,6 +48,7 @@ contract DepositAggregatorTest is Test {
 
     function setUp() public {
         rp = IRateProvider(new MockRateProvider());
+        agg = new Aggregator();
 
         MockRateProvider(address(rp)).setRate(address(token0), 2 ether);
         MockRateProvider(address(rp)).setRate(address(token1), 3 ether);
@@ -83,12 +85,15 @@ contract DepositAggregatorTest is Test {
         vm.startPrank(jake);
         poolToken.setPool(address(pool));
         pool.setStaking(address(vault));
+        pool.setSwapFeeRate(3 * PRECISION / 10_000); // 3 bps
+        vault.setProtocolFeeAddress(jake);
+        vault.setDepositFeeInBps(100); // 100 bps
         vm.stopPrank();
 
         // mint tokens to first lp
-        deal(address(token0), alice, 100_000_000 * 1e18); // 100,000,000 SWBTCWBTC_CURVE
-        deal(address(token1), alice, 100_000_000 * 1e8); // 100,000,000 SWBTC
-        deal(address(token2), alice, 100_000_000 * 1e18); // 100,000,000 GAUNTLET_WBTC_CORE
+        deal(address(token0), alice, 100_000_000 * 1e8); // 100,000,000 SWBTCWBTC_CURVE
+        deal(address(token1), alice, 100_000_000 * 1e18); // 100,000,000 SWBTC
+        deal(address(token2), alice, 100_000_000 * 1e6); // 100,000,000 USDC
 
         uint256 total = 10_000 * 1e8; // considering we seed 10000 WBTC worth of assets
 
@@ -136,7 +141,7 @@ contract DepositAggregatorTest is Test {
         return amounts;
     }
 
-    function testAddLiquidity() public {
+    function test__addLiquidity() public {
         PoolEstimator estimator = new PoolEstimator(address(pool));
         uint256 numTokens = pool.numTokens();
 
@@ -155,13 +160,12 @@ contract DepositAggregatorTest is Test {
         assert(lpReceivedActual == lpReceivedEstimated);
     }
 
-    function testDepositAggregator() public {
+    function test__deposit() public {
         PoolEstimator estimator = new PoolEstimator(address(pool));
-        DepositAggregator agg = new DepositAggregator();
         uint256 numTokens = pool.numTokens();
-        uint256[] memory amounts1 = new uint256[](numTokens);
+        uint256[] memory amounts = new uint256[](numTokens);
         uint256 total1 = 100 * 1e8;
-        amounts1 = _calculateSeedAmounts(total1);
+        amounts = _calculateSeedAmounts(total1);
 
         // approve agg as spender
         for (uint256 i = 0; i < numTokens; i++) {
@@ -174,9 +178,37 @@ contract DepositAggregatorTest is Test {
         uint256 sharesOfAlice = vault.balanceOf(alice);
 
         vm.startPrank(alice);
-        uint256 shares = agg.deposit(tokens, amounts1, alice, 0, address(pool));
+        uint256 shares = agg.deposit(tokens, amounts, alice, 0, address(pool));
         vm.stopPrank();
 
         assert(shares == (vault.balanceOf(alice) - sharesOfAlice));
+    }
+
+    function test__redeemBalanced() public {
+        PoolEstimator estimator = new PoolEstimator(address(pool));
+        uint256 aliceShares = vault.balanceOf(alice);
+        uint256 aliceLpWorth = vault.convertToAssets(aliceShares / 10); // redeem 10% of the balance
+
+        uint256[] memory minAmounts = new uint256[](pool.numTokens());
+        uint256[] memory amountsOut = new uint256[](pool.numTokens());
+        uint256[] memory aliceTokenBalancesBefore = new uint256[](pool.numTokens());
+        uint256[] memory amountsOutEstimated = new uint256[](pool.numTokens());
+
+        for (uint256 i = 0; i < pool.numTokens(); i++) {
+            aliceTokenBalancesBefore[i] = ERC20(pool.tokens(i)).balanceOf(alice);
+        }
+
+        amountsOutEstimated = estimator.getRemoveLp(aliceLpWorth);
+
+        vm.startPrank(alice);
+        vault.approve(address(agg), type(uint256).max);
+        agg.redeemBalanced(address(pool), aliceShares / 10, minAmounts, alice);
+        vm.stopPrank();
+
+        assert(aliceShares - vault.balanceOf(alice) == aliceLpWorth);
+
+        for (uint256 i = 0; i < pool.numTokens(); i++) {
+            assert(ERC20(pool.tokens(i)).balanceOf(alice) - aliceTokenBalancesBefore[i] == amountsOutEstimated[i]);
+        }
     }
 }
