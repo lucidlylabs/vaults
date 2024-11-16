@@ -38,11 +38,46 @@ contract Aggregator {
         shares = Vault(vaultAddress).deposit(lpReceived, receiver);
     }
 
-    function redeemBalanced(address poolAddress, uint256 sharesToBurn, uint256[] calldata minAmounts, address receiver)
-        external
-    {
+    function depositFor(
+        address[] calldata tokens,
+        uint256[] calldata tokenAmounts,
+        address receiver,
+        uint256 minLpAmount,
+        address poolAddress
+    ) external returns (uint256 shares) {
+        require(tokens.length == tokenAmounts.length, "tokens and tokenAmounts should be of same length");
+
+        for (uint256 i = 0; i < tokenAmounts.length; i++) {
+            // SafeTransferLib.safeTransferFrom(tokens[i], msg.sender, address(this), tokenAmounts[i]);
+            ERC20(tokens[i]).approve(poolAddress, tokenAmounts[i]);
+        }
+
+        address vaultAddress = Pool(poolAddress).stakingAddress();
+        uint256 lpReceived = Pool(poolAddress).addLiquidityFor(tokenAmounts, minLpAmount, msg.sender, address(this));
+        PoolToken(Pool(poolAddress).tokenAddress()).approve(vaultAddress, lpReceived);
+        shares = Vault(vaultAddress).deposit(lpReceived, receiver);
+    }
+
+    function redeemBalanced(
+        address poolAddress,
+        uint256 sharesToBurn,
+        uint256[] calldata minAmountsOut,
+        address receiver
+    ) external {
         Vault vault = Vault(Pool(poolAddress).stakingAddress());
         uint256 lpRedeemed = vault.redeem(sharesToBurn, address(this), msg.sender);
-        Pool(poolAddress).removeLiquidity(lpRedeemed, minAmounts, receiver);
+        Pool(poolAddress).removeLiquidity(lpRedeemed, minAmountsOut, receiver);
+    }
+
+    function redeemSingle(
+        address poolAddress,
+        uint256 tokenOut,
+        uint256 sharesToBurn,
+        uint256 minAmountOut,
+        address receiver
+    ) external returns (uint256 tokenOutAmount) {
+        Vault vault = Vault(Pool(poolAddress).stakingAddress());
+        uint256 lpRedeemed = vault.redeem(sharesToBurn, address(this), msg.sender);
+        tokenOutAmount = Pool(poolAddress).removeLiquiditySingle(tokenOut, lpRedeemed, minAmountOut, receiver);
     }
 }

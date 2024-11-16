@@ -444,6 +444,150 @@ contract Pool is Ownable, ReentrancyGuard {
         return _toMint;
     }
 
+    /// @notice deposit tokens into the pool
+    /// @param amounts_ array of the amount for each token to take from caller
+    /// @param minLpAmount_ minimum amount of lp tokens to mint
+    /// @param receiver_ account to receive the lp tokens
+    /// @return amount of LP tokens minted
+    function addLiquidityFor(uint256[] calldata amounts_, uint256 minLpAmount_, address owner_, address receiver_)
+        external
+        nonReentrant
+        returns (uint256)
+    {
+        uint256 _numTokens = numTokens;
+        if (amounts_.length != _numTokens) revert Pool__InvalidParams();
+
+        (uint256 _virtualBalanceProd, uint256 _virtualBalanceSum) = _unpackPoolVirtualBalance(packedPoolVirtualBalance);
+
+        uint256 _prevVirtualBalance;
+        uint256 _rate;
+        uint256 _packedWeight;
+
+        // find lowest relative increase in balance
+        uint256 _tokens = 0;
+        uint256 _lowest = type(uint256).max;
+        uint256 _sh;
+
+        for (uint256 t = 0; t < MAX_NUM_TOKENS; t++) {
+            if (t == _numTokens) break;
+
+            uint256 __amount = amounts_[t];
+
+            if (__amount > 0) {
+                uint256 _adjustedAmount = FixedPointMathLib.mulWad(__amount, rateMultipliers[t]); // (__amount * rateMultipliers[t]) / PRECISION
+                _tokens = _tokens | (FixedPointMathLib.rawAdd(t, 1) << _sh);
+                _sh = FixedPointMathLib.rawAdd(_sh, 8);
+                if (_virtualBalanceSum > 0 && _lowest > 0) {
+                    (_prevVirtualBalance, _rate, _packedWeight) = _unpackVirtualBalance(packedVirtualBalances[t]);
+                    _lowest = FixedPointMathLib.min(_adjustedAmount * _rate / _prevVirtualBalance, _lowest);
+                }
+            } else {
+                _lowest = 0;
+            }
+        }
+        if (_sh == 0) revert Pool__NeedToDepositAtleastOneToken();
+
+        // update rates
+        (_virtualBalanceProd, _virtualBalanceSum) = _updateRates(_tokens, _virtualBalanceProd, _virtualBalanceSum);
+        uint256 _prevSupply = supply;
+
+        uint256 _virtualBalanceProdFinal = _virtualBalanceProd;
+        uint256 _virtualBalanceSumFinal = _virtualBalanceSum;
+        uint256 _prevVirtualBalanceSum = _virtualBalanceSum;
+        uint256[] memory _prevRatios = new uint256[](_numTokens);
+        uint256 _virtualBalance;
+
+        for (uint256 t = 0; t < MAX_NUM_TOKENS; t++) {
+            if (t == _numTokens) break;
+
+            uint256 __amount = amounts_[t];
+            uint256 _adjustedAmount = FixedPointMathLib.mulWad(__amount, rateMultipliers[t]); // (__amount * rateMultipliers[t]) / PRECISION
+
+            if (_adjustedAmount == 0) {
+                if (!(_prevSupply > 0)) {
+                    revert Pool__InitialDepositAmountMustBeNonZero();
+                }
+                continue;
+            }
+
+            // update stored virtual balance
+            (_prevVirtualBalance, _rate, _packedWeight) = _unpackVirtualBalance(packedVirtualBalances[t]);
+            uint256 _changeInVirtualBalance = (_adjustedAmount * _rate) / PRECISION;
+            _virtualBalance = _prevVirtualBalance + _changeInVirtualBalance;
+            packedVirtualBalances[t] = _packVirtualBalance(_virtualBalance, _rate, _packedWeight);
+
+            if (_prevSupply > 0) {
+                _prevRatios[t] = (_prevVirtualBalance * PRECISION) / _prevVirtualBalanceSum;
+                uint256 _weightTimesN = _unpackWeightTimesN(_packedWeight, _numTokens);
+
+                // update product and sum of virtual balances
+                _virtualBalanceProdFinal = (
+                    _virtualBalanceProdFinal
+                        * _powUp((_prevVirtualBalance * PRECISION) / _virtualBalance, _weightTimesN)
+                ) / PRECISION;
+
+                // the `D^n` factor will be updated in `_calculateSupply()`
+                _virtualBalanceSumFinal += _changeInVirtualBalance;
+
+                // remove fees from balance and recalculate sum and product
+                uint256 _fee = (
+                    (_changeInVirtualBalance - (_prevVirtualBalance * _lowest) / PRECISION) * (swapFeeRate / 2)
+                ) / PRECISION;
+                _virtualBalanceProd = (
+                    _virtualBalanceProd
+                        * _powUp((_prevVirtualBalance * PRECISION) / (_virtualBalance - _fee), _weightTimesN)
+                ) / PRECISION;
+                _virtualBalanceSum += _changeInVirtualBalance - _fee;
+            }
+
+            SafeTransferLib.safeTransferFrom(tokens[t], owner_, address(this), __amount);
+        }
+
+        uint256 _supply = _prevSupply;
+        if (_prevSupply == 0) {
+            // initial deposit, calculate necessary variables
+            (_virtualBalanceProd, _virtualBalanceSum) = _calculateVirtualBalanceProdSum();
+            if (!(_virtualBalanceProd > 0)) revert Pool__AmountsMustBeNonZero();
+            _supply = _virtualBalanceSum;
+        } else {
+            // check bands
+            for (uint256 t = 0; t < MAX_NUM_TOKENS; t++) {
+                if (t == _numTokens) break;
+                if (amounts_[t] == 0) continue;
+                (_virtualBalance, _rate, _packedWeight) = _unpackVirtualBalance(packedVirtualBalances[t]);
+                _checkBands(_prevRatios[t], (_virtualBalance * PRECISION) / _virtualBalanceSumFinal, _packedWeight);
+            }
+        }
+
+        // mint LP tokens
+        (_supply, _virtualBalanceProd) = _calculateSupply(
+            _numTokens, _supply, amplification, _virtualBalanceProd, _virtualBalanceSum, _prevSupply == 0
+        );
+        uint256 _toMint = _supply - _prevSupply;
+
+        if (!(_toMint > 0 && _toMint >= minLpAmount_)) {
+            revert Pool__SlippageLimitExceeded();
+        }
+        PoolToken(tokenAddress).mint(receiver_, _toMint);
+        emit AddLiquidity(msg.sender, receiver_, amounts_, _toMint);
+
+        uint256 _supplyFinal = _supply;
+        if (_prevSupply > 0) {
+            // mint fees
+            (_supplyFinal, _virtualBalanceProdFinal) = _calculateSupply(
+                _numTokens, _prevSupply, amplification, _virtualBalanceProdFinal, _virtualBalanceSumFinal, true
+            );
+            PoolToken(tokenAddress).mint(stakingAddress, _supplyFinal - _supply);
+        } else {
+            _virtualBalanceProdFinal = _virtualBalanceProd;
+            _virtualBalanceSumFinal = _virtualBalanceSum;
+        }
+        supply = _supplyFinal;
+
+        packedPoolVirtualBalance = _packPoolVirtualBalance(_virtualBalanceProdFinal, _virtualBalanceSumFinal);
+        return _toMint;
+    }
+
     /// @notice withdraw tokens from the pool in a balanced manner
     /// @param lpAmount_ amount of lp tokens to burn
     /// @param minAmounts_ array of minimum amount of each token to send

@@ -133,7 +133,7 @@ contract AggregatorTest is Test {
             require(ERC20(token).approve(address(pool), type(uint256).max), "could not approve");
             vm.stopPrank();
 
-            uint256 unadjustedRate = IRateProvider(rateProvider).rate(token); // price of an asset in WBTC, scaled to 18 precision
+            uint256 unadjustedRate = IRateProvider(rateProvider).rate(token); // price of the asset scaled to 18 precision
             uint256 amount =
                 (total * weights[i] * 1e18 * 1e10) / (unadjustedRate * (10 ** (36 - ERC20(token).decimals())));
             amounts[i] = amount;
@@ -161,7 +161,6 @@ contract AggregatorTest is Test {
     }
 
     function test__deposit() public {
-        PoolEstimator estimator = new PoolEstimator(address(pool));
         uint256 numTokens = pool.numTokens();
         uint256[] memory amounts = new uint256[](numTokens);
         uint256 total1 = 100 * 1e8;
@@ -184,13 +183,35 @@ contract AggregatorTest is Test {
         assert(shares == (vault.balanceOf(alice) - sharesOfAlice));
     }
 
+    function test__depositFor() public {
+        uint256 numTokens = pool.numTokens();
+        uint256[] memory amounts = new uint256[](numTokens);
+        uint256 total1 = 100 * 1e8;
+        amounts = _calculateSeedAmounts(total1);
+
+        // approve agg as spender
+        for (uint256 i = 0; i < numTokens; i++) {
+            address token = tokens[i];
+            vm.startPrank(alice);
+            require(ERC20(token).approve(address(agg), type(uint256).max), "could not approve");
+            vm.stopPrank();
+        }
+
+        uint256 sharesOfAlice = vault.balanceOf(alice);
+
+        vm.startPrank(alice);
+        uint256 shares = agg.depositFor(tokens, amounts, alice, 0, address(pool));
+        vm.stopPrank();
+
+        assert(shares == (vault.balanceOf(alice) - sharesOfAlice));
+    }
+
     function test__redeemBalanced() public {
         PoolEstimator estimator = new PoolEstimator(address(pool));
         uint256 aliceShares = vault.balanceOf(alice);
         uint256 aliceLpWorth = vault.convertToAssets(aliceShares / 10); // redeem 10% of the balance
 
         uint256[] memory minAmounts = new uint256[](pool.numTokens());
-        uint256[] memory amountsOut = new uint256[](pool.numTokens());
         uint256[] memory aliceTokenBalancesBefore = new uint256[](pool.numTokens());
         uint256[] memory amountsOutEstimated = new uint256[](pool.numTokens());
 
@@ -210,5 +231,20 @@ contract AggregatorTest is Test {
         for (uint256 i = 0; i < pool.numTokens(); i++) {
             assert(ERC20(pool.tokens(i)).balanceOf(alice) - aliceTokenBalancesBefore[i] == amountsOutEstimated[i]);
         }
+    }
+
+    function test__redeemSingle() public {
+        PoolEstimator estimator = new PoolEstimator(address(pool));
+        uint256 aliceShares = vault.balanceOf(alice);
+        uint256 aliceLpWorth = vault.convertToAssets(aliceShares / 10); // redeem 10% of the balance
+        uint256 amountOutEstimated = estimator.getRemoveSingleLp(0, aliceLpWorth);
+
+        vm.startPrank(alice);
+        vault.approve(address(agg), type(uint256).max);
+        uint256 amountOutActual = agg.redeemSingle(address(pool), 0, aliceShares / 10, 0, alice);
+        vm.stopPrank();
+
+        assert(aliceShares - vault.balanceOf(alice) == aliceLpWorth);
+        assert(amountOutEstimated == amountOutActual);
     }
 }
