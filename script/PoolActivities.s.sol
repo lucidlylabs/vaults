@@ -10,7 +10,7 @@ import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 
 import {Pool} from "../src/Pool.sol";
 import {PoolToken} from "../src/PoolToken.sol";
-import {MasterVault} from "../src/Staking.sol";
+import {Vault} from "../src/Vault.sol";
 import {MockToken} from "../src/Mocks/MockToken.sol";
 import {MockRateProvider} from "../src/Mocks/MockRateProvider.sol";
 import {PoolEstimator} from "../tests/PoolEstimator.sol";
@@ -38,8 +38,8 @@ contract PoolActivities is Script {
         // PoolToken poolToken = PoolToken(POOL_TOKEN);
 
         // Redeem from vault
-        uint256 sharesBalance = MasterVault(VAULT).balanceOf(ADMIN_ADDRESS);
-        uint256 lpReceived = MasterVault(VAULT).redeem(sharesBalance / 1000, ADMIN_ADDRESS, ADMIN_ADDRESS);
+        uint256 sharesBalance = Vault(VAULT).balanceOf(ADMIN_ADDRESS);
+        uint256 lpReceived = Vault(VAULT).redeem(sharesBalance / 1000, ADMIN_ADDRESS, ADMIN_ADDRESS);
 
         uint256[] memory minAmounts = new uint256[](5);
         for (uint256 i = 0; i < minAmounts.length; i++) {
@@ -79,8 +79,8 @@ contract Pool2Activities is Script {
         // PoolToken poolToken = PoolToken(POOL_TOKEN);
 
         // Redeem from vault
-        uint256 sharesBalance = MasterVault(VAULT).balanceOf(ADMIN_ADDRESS);
-        uint256 lpReceived = MasterVault(VAULT).redeem(sharesBalance / 1000, ADMIN_ADDRESS, ADMIN_ADDRESS);
+        uint256 sharesBalance = Vault(VAULT).balanceOf(ADMIN_ADDRESS);
+        uint256 lpReceived = Vault(VAULT).redeem(sharesBalance / 1000, ADMIN_ADDRESS, ADMIN_ADDRESS);
 
         uint256[] memory minAmounts = new uint256[](2);
         for (uint256 i = 0; i < minAmounts.length; i++) {

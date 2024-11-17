@@ -6,7 +6,7 @@ import {IERC20, ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.
 import {ERC4626} from "openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {ERC4626Fees} from "openzeppelin-contracts/contracts/mocks/docs/ERC4626Fees.sol";
 
-contract MasterVault is ERC4626Fees, Ownable {
+contract Vault is ERC4626Fees, Ownable {
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                           ERRORS                           */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/

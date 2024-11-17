@@ -9,7 +9,7 @@ import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 
 import {Pool} from "../src/Pool.sol";
 import {PoolToken} from "../src/PoolToken.sol";
-import {MasterVault} from "../src/Staking.sol";
+import {Vault} from "../src/Vault.sol";
 import {MockToken} from "../src/Mocks/MockToken.sol";
 import {MockRateProvider} from "../src/Mocks/MockRateProvider.sol";
 import {PoolEstimator} from "../tests/PoolEstimator.sol";
@@ -33,7 +33,7 @@ contract EthenaVaultRpDeploymentScript is Script {
 contract EthenaVaultDeploymentScript is Script {
     PoolToken poolToken;
     Pool pool;
-    MasterVault vault;
+    Vault vault;
     IRateProvider rateProvider;
 
     address private ADMIN_ADDRESS = 0x1b514df3413DA9931eB31f2Ab72e32c0A507Cad5;
@@ -88,7 +88,7 @@ contract EthenaVaultDeploymentScript is Script {
 
         pool = new Pool(address(poolToken), 450 * PRECISION, tokens, rateProviders, weights, admin);
 
-        vault = new MasterVault(address(poolToken), "Lucidly USDE Vault", "USDE-VS", 100, admin, admin);
+        vault = new Vault(address(poolToken), "Lucidly USDE Vault", "USDE-VS", 100, admin, admin);
 
         poolToken.setPool(address(pool));
         pool.setStaking(address(vault));

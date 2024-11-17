@@ -10,7 +10,7 @@ import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 
 import {Pool} from "../src/Pool.sol";
 import {PoolToken} from "../src/PoolToken.sol";
-import {MasterVault} from "../src/Staking.sol";
+import {Vault} from "../src/Vault.sol";
 import {MockToken} from "../src/Mocks/MockToken.sol";
 import {MockRateProvider} from "../src/Mocks/MockRateProvider.sol";
 import {PoolEstimator} from "../tests/PoolEstimator.sol";
@@ -22,7 +22,7 @@ import {StakeeaseVaultRateProvider} from "../src/RateProvider/stakeease-sxeth/St
 contract PoolSeeding is Script {
     Pool pool = Pool(0x001DF2Cc0c3433beAd3703575F13841d2EBC078f);
     PoolToken poolToken = PoolToken(0x4d733dF57E137b074A6CA88D26cbe1bc79608033);
-    MasterVault vault = MasterVault(0x4CC72CAfB1d87068Cae2da03243317F96E863a9E);
+    Vault vault = Vault(0x4CC72CAfB1d87068Cae2da03243317F96E863a9E);
     MockRateProvider rateProvider = MockRateProvider(0xF1c0629A8B37A02fE2123f4B8F2A38C58961C6D4);
 
     uint256 public amplification;
@@ -94,7 +94,7 @@ contract PoolSeeding is Script {
 contract SeedSxETHPool is Script {
     Pool pool = Pool(0x188B679c0bAf56b9838584AfaC82D713e68112fC);
     PoolToken poolToken = PoolToken(0x34e523B10B85c41515807811456613Cf2a077C77);
-    MasterVault vault = MasterVault(0xCDE68b2DB42cfA27ad9A653eEAc4f23297227175);
+    Vault vault = Vault(0xCDE68b2DB42cfA27ad9A653eEAc4f23297227175);
     MockRateProvider rateProvider = MockRateProvider(0x144Bec263C77E9d20946d2A8A96507d68c4922D5);
 
     uint256 public amplification;
@@ -138,7 +138,7 @@ contract SeedSxETHPool is Script {
             console.log("balance =", MockToken(token).balanceOf(ADMIN_ADDRESS));
         }
 
-        uint256 lpReceived = pool.addLiquidity(amounts, 0, ADMIN_ADDRESS);
+        pool.addLiquidity(amounts, 0, ADMIN_ADDRESS);
 
         poolToken.approve(address(vault), poolToken.balanceOf(ADMIN_ADDRESS));
         uint256 shares = vault.deposit(poolToken.balanceOf(ADMIN_ADDRESS), ADMIN_ADDRESS);
