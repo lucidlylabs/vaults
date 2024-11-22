@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import {console} from "../lib/forge-std/src/console.sol";
 import {Ownable} from "../lib/solady/src/auth/Ownable.sol";
 import {ERC20} from "../lib/solady/src/tokens/ERC20.sol";
 import {ReentrancyGuard} from "../lib/solady/src/utils/ReentrancyGuard.sol";
@@ -1056,6 +1057,7 @@ contract Pool is Ownable, ReentrancyGuard {
             uint256 _newWeight = weights_[t];
             if (_newWeight >= PRECISION) revert Pool__WeightOutOfBounds();
             _total += _newWeight;
+            console.log("total:", _total);
 
             (uint256 _virtualBalance, uint256 _rate, uint256 _packedWeight) =
                 _unpackVirtualBalance(packedVirtualBalances[t]);

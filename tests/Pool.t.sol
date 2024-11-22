@@ -84,21 +84,6 @@ contract PoolTest is Test {
         rateProviders[3] = address(mrp);
 
         amplification = 167_237_825_366_714_712_064;
-
-        // // deploy pool token
-        // poolToken = new PoolToken("XYZ Pool Token", "XYZ-PT", 18, jake);
-
-        // // deploy pool
-        // pool = new Pool(address(poolToken), amplification, tokens, rateProviders, weights, jake);
-
-        // // deploy staking contract
-        // staking = new Staking(address(pool), "XYZ Mastervault Token", "XYZ-MVT", true, jake);
-
-        // // set staking on pool
-        // vm.startPrank(jake);
-        // poolToken.setPool(address(pool));
-        // pool.setStaking(address(staking));
-        // vm.stopPrank();
     }
 
     function testRateUpdate() public {
