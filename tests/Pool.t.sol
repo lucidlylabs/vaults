@@ -99,7 +99,7 @@ contract PoolTest is Test {
         pool = new Pool(address(poolToken), calculateWProd(weights2) * 10, tokens, rateProviders, weights2, jake);
 
         vm.startPrank(jake);
-        pool.setStaking(jake);
+        pool.setVaultAddress(jake);
         poolToken.setPool(address(pool));
         vm.stopPrank();
 
@@ -174,7 +174,7 @@ contract PoolTest is Test {
         PoolToken poolToken1 = new PoolToken("PoolToken1", "XYZ-PT1", 18, jake);
         Pool pool1 = new Pool(address(poolToken1), amplification1, tokens0, mockRateProviders, weights1, jake);
         poolToken1.setPool(address(pool1));
-        pool1.setStaking(alice);
+        pool1.setVaultAddress(alice);
         vm.stopPrank();
 
         for (uint256 i = 0; i < 5; i++) {
@@ -227,7 +227,7 @@ contract PoolTest is Test {
         Pool pool2 =
             new Pool(address(poolToken2), calculateWProd(weights2) * 10, tokens1, mockRateProviders1, weights2, jake);
         poolToken2.setPool(address(pool2));
-        pool2.setStaking(alice);
+        pool2.setVaultAddress(alice);
         vm.stopPrank();
 
         uint256[] memory _amounts1 = new uint256[](n);

@@ -89,7 +89,7 @@ contract PoolRemoveToken is Test {
         // set staking on pool
         vm.startPrank(jake);
         poolToken.setPool(address(pool));
-        pool.setStaking(address(vault));
+        pool.setVaultAddress(address(vault));
         pool.setSwapFeeRate(3 * PRECISION / 10_000); // 3 bps
         vault.setProtocolFeeAddress(jake);
         vault.setDepositFeeInBps(100); // 100 bps
@@ -160,14 +160,16 @@ contract PoolRemoveToken is Test {
         uint256[] memory newWeights = new uint256[](4);
         newWeights[0] = 40 * PRECISION / 100;
         newWeights[1] = 30 * PRECISION / 100;
-        newWeights[2] = 30 * PRECISION / 100;
-        newWeights[3] = 0;
+        newWeights[2] = 299 * PRECISION / 1000;
+        newWeights[3] = 1 * PRECISION / 1000;
 
         uint256 newAmplification = 600 * PRECISION;
 
         vm.startPrank(jake);
         pool.setRamp(newAmplification, newWeights, 7 days, vm.getBlockTimestamp());
         vm.stopPrank();
+
+        uint256 ts = vm.getBlockTimestamp();
 
         vm.startPrank(alice);
         uint256 seedLpRedeemed = vault.redeem(vault.balanceOf(alice), alice, alice);
@@ -178,22 +180,86 @@ contract PoolRemoveToken is Test {
 
         uint256 totalLpOfAlice = poolToken.balanceOf(alice);
         uint256 tokenOut1;
+        uint256 tokenOut2;
+        uint256 tokenOut3;
 
         uint256 lpToRemove = totalLpOfAlice * 30 / 100;
+        uint256[] memory newLp = new uint256[](4);
+        newLp[0] = _getTokenAmountFromLp(lpToRemove, 0);
 
         uint256 ss1 = vm.snapshotState();
         vm.startPrank(alice);
+        console.log("token3 weight in the pool now:", _getWeightOfToken(3));
         // vm.expectRevert(bytes4(keccak256(bytes("Pool__NoConvergence()"))));
         tokenOut1 = pool.removeLiquiditySingle(3, lpToRemove, 0, alice);
+        pool.addLiquidity(newLp, 0, alice);
         vm.stopPrank();
-
         assert(token3BalanceInPool > tokenOut1);
+        console.log("First attempt -> 0 day");
         console.log("pool token3 balance before:", token3BalanceInPool);
         console.log("pool token3 balance removed:", tokenOut1);
         console.log("pool token3 balance now:", ERC20(pool.tokens(3)).balanceOf(address(pool)));
+        console.log("token3 weight in the pool now:", _getWeightOfToken(3));
         assert(ERC20(pool.tokens(3)).balanceOf(address(pool)) + tokenOut1 == token3BalanceInPool);
         vm.revertToState(ss1);
 
+        console.log("////////////////////////////////////////////////////////");
+
         // halfway ramp
+        vm.warp(ts + 7 days / 2);
+
+        uint256 ss2 = vm.snapshotState();
+        vm.startPrank(alice);
+        console.log("token3 weight in the pool now:", _getWeightOfToken(3));
+        // vm.expectRevert(bytes4(keccak256(bytes("Pool__NoConvergence()"))));
+        tokenOut2 = pool.removeLiquiditySingle(3, lpToRemove, 0, alice);
+        pool.addLiquidity(newLp, 0, alice);
+        vm.stopPrank();
+        assert(token3BalanceInPool > tokenOut2);
+        console.log("Second attempt -> 3.5 day");
+        console.log("pool token3 balance before:", token3BalanceInPool);
+        console.log("pool token3 balance removed:", tokenOut2);
+        console.log("pool token3 balance now:", ERC20(pool.tokens(3)).balanceOf(address(pool)));
+        console.log("token3 weight in the pool now:", _getWeightOfToken(3));
+        assert(ERC20(pool.tokens(3)).balanceOf(address(pool)) + tokenOut2 == token3BalanceInPool);
+        vm.revertToState(ss2);
+
+        console.log("////////////////////////////////////////////////////////");
+
+        // halfway ramp
+        vm.warp(ts + 7 days);
+
+        uint256 ss3 = vm.snapshotState();
+        vm.startPrank(alice);
+        console.log("token3 weight in the pool now:", _getWeightOfToken(3));
+        // vm.expectRevert(bytes4(keccak256(bytes("Pool__NoConvergence()"))));
+        tokenOut3 = pool.removeLiquiditySingle(3, lpToRemove, 0, alice);
+        pool.addLiquidity(newLp, 0, alice);
+        vm.stopPrank();
+        assert(token3BalanceInPool > tokenOut2);
+        console.log("Third attempt -> 7 day");
+        console.log("pool token3 balance before:", token3BalanceInPool);
+        console.log("pool token3 balance removed:", tokenOut3);
+        console.log("pool token3 balance now:", ERC20(pool.tokens(3)).balanceOf(address(pool)));
+        console.log("token3 weight in the pool now:", _getWeightOfToken(3));
+        assert(ERC20(pool.tokens(3)).balanceOf(address(pool)) + tokenOut3 == token3BalanceInPool);
+        vm.revertToState(ss3);
+    }
+
+    function _getWeightOfToken(uint256 token) internal returns (uint256) {
+        uint256 numTokens = pool.numTokens();
+        uint256 totalVb;
+        for (uint256 i = 0; i < numTokens; i++) {
+            totalVb = totalVb + pool.virtualBalance(i);
+        }
+
+        return pool.virtualBalance(token) * PRECISION / totalVb;
+    }
+
+    function _getTokenAmountFromLp(uint256 lpAmount, uint256 token) internal returns (uint256) {
+        uint256 rate = IRateProvider(pool.rateProviders(token)).rate(pool.tokens(token));
+        uint256 unadjustedAmount = lpAmount * PRECISION / rate;
+
+        return unadjustedAmount * PRECISION / (10 ** (36 - ERC20(pool.tokens(token)).decimals()));
     }
 }
