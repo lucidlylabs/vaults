@@ -94,7 +94,7 @@ contract PoolRemove is Test {
         // set staking on pool
         vm.startPrank(jake);
         poolToken.setPool(address(pool));
-        pool.setStaking(address(staking));
+        pool.setVaultAddress(address(staking));
         vm.stopPrank();
     }
 

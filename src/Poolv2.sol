@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {Ownable} from "../lib/solady/src/auth/Ownable.sol";
+import {OwnableRoles} from "../lib/solady/src/auth/OwnableRoles.sol";
 import {ERC20} from "../lib/solady/src/tokens/ERC20.sol";
 import {ReentrancyGuard} from "../lib/solady/src/utils/ReentrancyGuard.sol";
 import {FixedPointMathLib} from "../lib/solady/src/utils/FixedPointMathLib.sol";
@@ -11,7 +11,7 @@ import {IRateProvider} from "./RateProvider/IRateProvider.sol";
 import {LogExpMath} from "./BalancerLibCode/LogExpMath.sol";
 import {PoolToken} from "./PoolToken.sol";
 
-contract Pool is Ownable, ReentrancyGuard {
+contract Pool is OwnableRoles, ReentrancyGuard {
     uint256 constant PRECISION = 1_000_000_000_000_000_000;
     uint256 constant MAX_NUM_TOKENS = 32;
     uint256 constant ALL_TOKENS_FLAG =
@@ -91,14 +91,37 @@ contract Pool is Ownable, ReentrancyGuard {
     event SetRamp(uint256 amplification, uint256[] weights, uint256 duration, uint256 start);
     event SetRampStep(uint256 rampStep);
     event StopRamp();
-    event SetVaultAddress(address vaultAddress);
+    event SetStaking(address vaultAddress);
     event SetGuardian(address indexed caller, address guardian);
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                             AUTH                           */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+    uint256 constant ROLE_POOL_OWNER = 1 << 0; // 0x1
+    uint256 constant ROLE_POOL_MANAGER = 1 << 1; // 0x2
+    uint256 constant ROLE_POOL_MONITOR = 1 << 2; // 0x4
+
+    modifier onlyPoolOwner() {
+        _checkRoles(ROLE_POOL_OWNER);
+        _;
+    }
+
+    modifier onlyPoolMonitor() {
+        _checkRoles(ROLE_POOL_MONITOR | ROLE_POOL_OWNER);
+        _;
+    }
+
+    modifier onlyPoolManager() {
+        _checkRoles(ROLE_POOL_MANAGER | ROLE_POOL_OWNER);
+        _;
+    }
 
     uint256 public amplification; // A * f**n
     uint256 public numTokens;
     uint256 public supply;
     address public tokenAddress;
     address public vaultAddress;
+
     address[MAX_NUM_TOKENS] public tokens;
     uint256[MAX_NUM_TOKENS] public rateMultipliers; // An array of: [10 ** (36 - tokens_[n].decimals()), ... for n in range(numTokens)]
     address[MAX_NUM_TOKENS] public rateProviders;
@@ -184,7 +207,9 @@ contract Pool is Ownable, ReentrancyGuard {
         }
 
         rampStep = 1;
-        _setOwner(owner_);
+
+        _initializeOwner(owner_);
+        _grantRoles(owner_, ROLE_POOL_OWNER);
 
         tokenAddress = tokenAddress_;
     }
@@ -819,14 +844,14 @@ contract Pool is Ownable, ReentrancyGuard {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     /// @notice pause the pool
-    function pause() external onlyOwner {
+    function pause() external onlyPoolMonitor {
         if (paused) revert Pool__AlreadyPaused();
         paused = true;
         emit Pause(msg.sender);
     }
 
     /// @notice unpause the pool
-    function unpause() external onlyOwner {
+    function unpause() external onlyPoolMonitor {
         if (!paused) revert Pool__NotPaused();
         if (killed) revert Pool__Killed();
         paused = false;
@@ -834,7 +859,7 @@ contract Pool is Ownable, ReentrancyGuard {
     }
 
     /// @notice kill the pool
-    function kill() external onlyOwner {
+    function kill() external onlyPoolOwner {
         if (!paused) revert Pool__NotPaused();
         if (killed) revert Pool__Killed();
         killed = true;
@@ -863,7 +888,7 @@ contract Pool is Ownable, ReentrancyGuard {
         uint256 amplification_,
         uint256 minLpAmount_,
         address receiver_
-    ) external onlyOwner {
+    ) external onlyPoolManager {
         if (amount_ == 0) revert Pool__ZeroAmount();
         uint256 _prevNumTokens = numTokens;
         if (_prevNumTokens >= MAX_NUM_TOKENS) revert Pool__PoolIsFull();
@@ -945,7 +970,7 @@ contract Pool is Ownable, ReentrancyGuard {
     /// @dev cannot be used to rescue pool tokens
     /// @param token_ the token to be rescued
     /// @param receiver_ receiver of the rescued tokens
-    function rescue(address token_, address receiver_) external onlyOwner {
+    function rescue(address token_, address receiver_) external onlyPoolManager {
         uint256 _numTokens = numTokens;
         for (uint256 t = 0; t < MAX_NUM_TOKENS; t++) {
             if (t == _numTokens) break;
@@ -958,7 +983,7 @@ contract Pool is Ownable, ReentrancyGuard {
     /// @notice skim surplus of a pool token
     /// @param token_ index of the token
     /// @param receiver_ receiver of the skimmed tokens
-    function skim(uint256 token_, address receiver_) external onlyOwner {
+    function skim(uint256 token_, address receiver_) external onlyPoolManager {
         if (token_ >= numTokens) revert Pool__IndexOutOfBounds();
         (uint256 _virtualBalance, uint256 _rate,) = _unpackVirtualBalance(packedVirtualBalances[token_]);
         uint256 _adjustedExpected = (_virtualBalance * PRECISION) / _rate + 1;
@@ -971,7 +996,7 @@ contract Pool is Ownable, ReentrancyGuard {
 
     /// @notice set new swap fee rate
     /// @param feeRate_ new swap fee rate (in 18 decimals)
-    function setSwapFeeRate(uint256 feeRate_) external onlyOwner {
+    function setSwapFeeRate(uint256 feeRate_) external onlyPoolManager {
         if (feeRate_ > PRECISION / 100) revert Pool__InvalidParams();
         swapFeeRate = feeRate_;
         emit SetSwapFeeRate(feeRate_);
@@ -983,7 +1008,7 @@ contract Pool is Ownable, ReentrancyGuard {
     /// @param upper_ array of widths of the upper band
     function setWeightBands(uint256[] calldata tokens_, uint256[] calldata lower_, uint256[] calldata upper_)
         external
-        onlyOwner
+        onlyPoolManager
     {
         if (!(lower_.length == tokens_.length && upper_.length == tokens_.length)) revert Pool__InvalidParams();
 
@@ -1008,7 +1033,7 @@ contract Pool is Ownable, ReentrancyGuard {
     /// @notice set a rate provider for a token
     /// @param token_ index of the token
     /// @param rateProvider_ new rate provider for the token
-    function setRateProvider(uint256 token_, address rateProvider_) external onlyOwner {
+    function setRateProvider(uint256 token_, address rateProvider_) external onlyPoolManager {
         if (token_ >= numTokens) revert Pool__IndexOutOfBounds();
 
         rateProviders[token_] = rateProvider_;
@@ -1026,7 +1051,7 @@ contract Pool is Ownable, ReentrancyGuard {
     /// @param start_ ramp start time
     function setRamp(uint256 amplification_, uint256[] calldata weights_, uint256 duration_, uint256 start_)
         external
-        onlyOwner
+        onlyPoolManager
     {
         uint256 _numTokens = numTokens;
         if (amplification_ == 0) revert Pool__InvalidParams();
@@ -1072,14 +1097,14 @@ contract Pool is Ownable, ReentrancyGuard {
 
     /// @notice set the minimum time b/w ramp step
     /// @param rampStep_ minimum step time (in seconds)
-    function setRampStep(uint256 rampStep_) external onlyOwner {
+    function setRampStep(uint256 rampStep_) external onlyPoolManager {
         if (rampStep_ == 0) revert Pool__InvalidParams();
         rampStep = rampStep_;
         emit SetRampStep(rampStep_);
     }
 
     /// @notice stop an active ramp
-    function stopRamp() external onlyOwner {
+    function stopRamp() external onlyPoolManager {
         rampLastTime = 0;
         rampStopTime = 0;
         emit StopRamp();
@@ -1087,10 +1112,10 @@ contract Pool is Ownable, ReentrancyGuard {
 
     /// @notice set the address that receives yield, slashings and swap fees
     /// @param vaultAddress_ new vault address
-    function setVaultAddress(address vaultAddress_) external onlyOwner {
+    function setVaultAddress(address vaultAddress_) external onlyPoolManager {
         if (vaultAddress_ == address(0)) revert Pool__InvalidParams();
         vaultAddress = vaultAddress_;
-        emit SetVaultAddress(vaultAddress_);
+        emit SetStaking(vaultAddress_);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -1292,6 +1317,18 @@ contract Pool is Ownable, ReentrancyGuard {
                 revert Pool__RatioAboveUpperBound();
             }
         }
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                        AUTH FUNCTIONS                      */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    function assignRole(address user_, uint256 role_) external onlyPoolOwner {
+        _grantRoles(user_, role_);
+    }
+
+    function revokeRole(address user_, uint256 role_) external onlyPoolOwner {
+        _removeRoles(user_, role_);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/

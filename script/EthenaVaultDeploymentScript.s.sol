@@ -91,7 +91,7 @@ contract EthenaVaultDeploymentScript is Script {
         vault = new Vault(address(poolToken), "Lucidly USDE Vault", "USDE-VS", 100, admin, admin);
 
         poolToken.setPool(address(pool));
-        pool.setStaking(address(vault));
+        pool.setVaultAddress(address(vault));
         pool.setSwapFeeRate(3 * PRECISION / 10_000); // 3bps
         vault.setDepositFeeInBps(100);
         vault.setProtocolFeeAddress(0x1b514df3413DA9931eB31f2Ab72e32c0A507Cad5);

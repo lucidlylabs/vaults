@@ -30,7 +30,7 @@ contract Aggregator {
             ERC20(tokens[i]).approve(poolAddress, tokenAmounts[i]);
         }
 
-        address vaultAddress = Pool(poolAddress).stakingAddress();
+        address vaultAddress = Pool(poolAddress).vaultAddress();
         uint256 lpReceived = Pool(poolAddress).addLiquidity(tokenAmounts, minLpAmount, address(this));
         PoolToken(Pool(poolAddress).tokenAddress()).approve(vaultAddress, lpReceived);
         shares = Vault(vaultAddress).deposit(lpReceived, receiver);
@@ -50,7 +50,7 @@ contract Aggregator {
             ERC20(tokens[i]).approve(poolAddress, tokenAmounts[i]);
         }
 
-        address vaultAddress = Pool(poolAddress).stakingAddress();
+        address vaultAddress = Pool(poolAddress).vaultAddress();
         uint256 lpReceived = Pool(poolAddress).addLiquidityFor(tokenAmounts, minLpAmount, msg.sender, address(this));
         PoolToken(Pool(poolAddress).tokenAddress()).approve(vaultAddress, lpReceived);
         shares = Vault(vaultAddress).deposit(lpReceived, receiver);
@@ -62,7 +62,7 @@ contract Aggregator {
         uint256[] calldata minAmountsOut,
         address receiver
     ) external {
-        Vault vault = Vault(Pool(poolAddress).stakingAddress());
+        Vault vault = Vault(Pool(poolAddress).vaultAddress());
         uint256 lpRedeemed = vault.redeem(sharesToBurn, address(this), msg.sender);
         Pool(poolAddress).removeLiquidity(lpRedeemed, minAmountsOut, receiver);
     }
@@ -74,7 +74,7 @@ contract Aggregator {
         uint256 minAmountOut,
         address receiver
     ) external returns (uint256 tokenOutAmount) {
-        Vault vault = Vault(Pool(poolAddress).stakingAddress());
+        Vault vault = Vault(Pool(poolAddress).vaultAddress());
         uint256 lpRedeemed = vault.redeem(sharesToBurn, address(this), msg.sender);
         tokenOutAmount = Pool(poolAddress).removeLiquiditySingle(tokenOut, lpRedeemed, minAmountOut, receiver);
     }
