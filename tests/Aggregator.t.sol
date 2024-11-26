@@ -84,7 +84,7 @@ contract AggregatorTest is Test {
         // set staking on pool
         vm.startPrank(jake);
         poolToken.setPool(address(pool));
-        pool.setStaking(address(vault));
+        pool.setVaultAddress(address(vault));
         pool.setSwapFeeRate(3 * PRECISION / 10_000); // 3 bps
         vault.setProtocolFeeAddress(jake);
         vault.setDepositFeeInBps(100); // 100 bps

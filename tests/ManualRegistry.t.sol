@@ -109,7 +109,7 @@ contract ManualRegistryTest is Test {
         // set staking on pool
         vm.startPrank(jake);
         poolToken0.setPool(address(pool0));
-        pool0.setStaking(address(vault0));
+        pool0.setVaultAddress(address(vault0));
         pool0.setSwapFeeRate(3 * PRECISION / 10_000); // 3 bps
         vault0.setProtocolFeeAddress(jake);
         vault0.setDepositFeeInBps(100); // 100 bps
@@ -183,7 +183,7 @@ contract ManualRegistryTest is Test {
         // set staking on pool
         vm.startPrank(jake);
         poolToken1.setPool(address(pool1));
-        pool1.setStaking(address(vault1));
+        pool1.setVaultAddress(address(vault1));
         pool1.setSwapFeeRate(3 * PRECISION / 10_000); // 3 bps
         vault1.setProtocolFeeAddress(jake);
         vault1.setDepositFeeInBps(100); // 100 bps
