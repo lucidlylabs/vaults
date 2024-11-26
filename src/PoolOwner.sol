@@ -5,8 +5,6 @@ import {ERC20} from "../lib/solady/src/tokens/ERC20.sol";
 import {OwnableRoles} from "../lib/solady/src/auth/OwnableRoles.sol";
 import {SafeTransferLib} from "../lib/solady/src/utils/SafeTransferLib.sol";
 
-import {Pool} from "./Pool.sol";
-
 contract PoolOwner is OwnableRoles {
     address public poolAddress;
 
