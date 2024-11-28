@@ -13,7 +13,7 @@ import {PoolToken} from "../src/PoolToken.sol";
 import {Vault} from "../src/Vault.sol";
 import {MockToken} from "../src/Mocks/MockToken.sol";
 import {IRateProvider} from "../src/RateProvider/IRateProvider.sol";
-import {SWBTCRateProvider} from "../src/RateProvider/swell-btc/SwBTCRateProvider.sol";
+import {SwBtcRateProvider} from "../src/RateProvider/swell-btc/SwBTCRateProvider.sol";
 import {ISWBTC} from "../src/RateProvider/swell-btc/ISWBTC.sol";
 import {ICurveStableSwapNG} from "../src/RateProvider/ICurveStableSwapNG.sol";
 import {MockRateProvider} from "../src/Mocks/MockRateProvider.sol";

@@ -9,7 +9,7 @@ import {IRateProvider} from "../IRateProvider.sol";
 import {ICurveStableSwapNG} from "../ICurveStableSwapNG.sol";
 import {IMetaMorpho} from "../IMetaMorpho.sol";
 
-contract SWBTCRateProvider is IRateProvider {
+contract SwBtcRateProvider is IRateProvider {
     error RateProvider__InvalidParam();
 
     uint256 private PRECISION = 1e8;

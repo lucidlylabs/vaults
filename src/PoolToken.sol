@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {ERC20} from "solady/tokens/ERC20.sol";
-import {Ownable} from "solady/auth/Ownable.sol";
+import {ERC20} from "../lib/solady/src/tokens/ERC20.sol";
+import {Ownable} from "../lib/solady/src/auth/Ownable.sol";
 
 contract PoolToken is ERC20, Ownable {
     error Token__CallerIsNotPool();
