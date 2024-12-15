@@ -5,8 +5,74 @@ import {Test} from "../lib/forge-std/src/Test.sol";
 import {console} from "../lib/forge-std/src/console.sol";
 
 import {UsdeVaultRateProvider} from "../src/RateProvider/ethena-usde/EthenaVaultRateProvider.sol";
+import {EthenaVaultV2RateProvider} from "../src/RateProvider/ethena-usde/EthenaVaultV2RateProvider.sol";
+import {PufEthVaultV2RateProvider} from "../src/RateProvider/puffer-pufeth/PufEthVaultV2RateProvider.sol";
 import {StakeeaseVaultRateProvider} from "../src/RateProvider/stakeease-sxeth/StakeeaseVaultRateProvider.sol";
 import {IRateProvider} from "../src/RateProvider/IRateProvider.sol";
+
+// pufEth vault assets
+address constant PUFETH = 0xD9A442856C234a39a81a089C06451EBAa4306a72;
+address constant PUFETH_WSTETH_CURVE = 0xEEda34A377dD0ca676b9511EE1324974fA8d980D;
+address constant WETH_PUFETH_CURVE = 0x39F5b252dE249790fAEd0C2F05aBead56D2088e1;
+address constant GAUNTLET_WETH_CORE = 0x4881Ef0BF6d2365D3dd6499ccd7532bcdBCE0658;
+
+// usde vault assets
+address constant SUSDE = 0x9D39A5DE30e57443BfF2A8307A4256c8797A3497;
+address constant SDAISUSDE_CURVE = 0x167478921b907422F8E88B43C4Af2B8BEa278d3A;
+address constant YPTSUSDE = 0x57fC2D9809F777Cd5c8C433442264B6E8bE7Fce4;
+address constant GAUNTLET_USDC_PRIME = 0xdd0f28e19C1780eb6396170735D45153D261490d;
+
+// contract RateProviders is Test {
+//     IRateProvider usdeRateProvider;
+//     IRateProvider pufEthRateProvider;
+//     uint256 private constant PRECISION = 1e18;
+//
+//     function setUp() public {
+//         vm.createSelectFork(vm.rpcUrl("http://127.0.0.1:8545"));
+//         usdeRateProvider = new EthenaVaultV2RateProvider();
+//         pufEthRateProvider = new PufEthVaultV2RateProvider();
+//     }
+//
+//     function test__FetchPufEthPrice() public view {
+//         uint256 rate = pufEthRateProvider.rate(PUFETH);
+//         console.log("PUFETH/ETH rate:", rate);
+//     }
+//
+//     function test__FetchPufEthWstEthLpPrice() public view {
+//         uint256 rate = pufEthRateProvider.rate(PUFETH_WSTETH_CURVE);
+//         console.log("WSTETHLP/ETH rate:", rate);
+//     }
+//
+//     function test__FetchWethPufEthLpPrice() public view {
+//         uint256 rate = pufEthRateProvider.rate(WETH_PUFETH_CURVE);
+//         console.log("WETHLP/ETH rate:", rate);
+//     }
+//
+//     function test__GauntletWethCorePrice() public view {
+//         uint256 rate = pufEthRateProvider.rate(GAUNTLET_WETH_CORE);
+//         console.log("GWC share/ETH:", rate);
+//     }
+//
+//     function test__FetchSusdePrice() public view {
+//         uint256 rate = usdeRateProvider.rate(SUSDE);
+//         console.log("SUSDE/USD rate:", rate);
+//     }
+//
+//     function test__FetchMtEthenaPrice() public view {
+//         uint256 rate = usdeRateProvider.rate(SDAISUSDE_CURVE);
+//         console.log("MtEthena/USD rate:", rate);
+//     }
+//
+//     function test__FetchYptsusdePrice() public view {
+//         uint256 rate = usdeRateProvider.rate(YPTSUSDE);
+//         console.log("YPTSUSDE/USD rate:", rate);
+//     }
+//
+//     function test__FetchGauntletPrimePrice() public view {
+//         uint256 rate = usdeRateProvider.rate(GAUNTLET_USDC_PRIME);
+//         console.log("Gauntlet USDC prime share rate:", rate);
+//     }
+// }
 
 // contract RateProviders is Test {
 //     uint256 private constant PRECISION = 1e18;
