@@ -296,6 +296,59 @@ contract PoolTest is Test {
         console.log("pt balance of alice: ", ERC20(address(poolToken2)).balanceOf(alice));
     }
 
+    function testRemoveToken() public {
+        uint256 n = 5;
+        uint256[] memory weights1 = new uint256[](n);
+
+        for (uint256 i = 0; i < n; i++) {
+            weights1[i] = PRECISION / n;
+        }
+
+        MockToken t0 = new MockToken("t0", "token0", 18);
+        MockToken t1 = new MockToken("t1", "token1", 18);
+        MockToken t2 = new MockToken("t2", "token2", 18);
+        MockToken t3 = new MockToken("t3", "token3", 18);
+        MockToken t4 = new MockToken("t4", "token4", 18);
+
+        address[] memory tokens0 = new address[](n);
+        address[] memory mockRateProviders = new address[](n);
+        tokens0[0] = address(t0);
+        tokens0[1] = address(t1);
+        tokens0[2] = address(t2);
+        tokens0[3] = address(t3);
+        tokens0[4] = address(t4);
+
+        MockRateProvider mrp0 = new MockRateProvider();
+        mrp0.setRate(tokens0[0], PRECISION);
+        mrp0.setRate(tokens0[1], PRECISION);
+        mrp0.setRate(tokens0[2], PRECISION);
+        mrp0.setRate(tokens0[3], PRECISION);
+        mrp0.setRate(tokens0[4], PRECISION);
+
+        mockRateProviders[0] = address(mrp0);
+        mockRateProviders[1] = address(mrp0);
+        mockRateProviders[2] = address(mrp0);
+        mockRateProviders[3] = address(mrp0);
+        mockRateProviders[4] = address(mrp0);
+
+        vm.startPrank(jake);
+        PoolToken poolToken1 = new PoolToken("PoolToken1", "XYZ-PT1", 18, jake);
+        Pool pool1 = new Pool(address(poolToken1), calculateWProd(weights1) * 10, tokens0, mockRateProviders, weights1, jake);
+        poolToken1.setPool(address(pool1));
+        pool1.removeToken(4);
+
+        // check if the number of tokens is correct
+        assert(pool1.numTokens() == 4);
+
+        // check if the weights are 25% each
+        for (uint256 i = 0; i < 4; i++) {
+            (uint256 weight, , , ) = pool1.weight(i);
+            assert(weight == PRECISION / 4);
+        }
+
+        vm.stopPrank();
+    }
+
     function testPause() public {}
 
     function testUnpause() public {}
