@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
-
 import {console} from "forge-std/console.sol";
 
 import {ERC20} from "solady/tokens/ERC20.sol";
@@ -10,7 +9,7 @@ import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 
-import {Pool} from "../../src/Pool.sol";
+import {Pool} from "../../src/Poolv2.sol";
 import {PoolToken} from "../../src/PoolToken.sol";
 import {Vault} from "../../src/Vault.sol";
 import {MockToken} from "../../src/Mocks/MockToken.sol";
@@ -44,7 +43,7 @@ contract PoolTest is Test {
     }
 
     function testRemoveToken() public {
-        vm.createSelectFork(vm.rpcUrl(""));
+        vm.createSelectFork(vm.rpcUrl("http://127.0.0.1:8545"));
 
         uint256 INITIAL_AMOUNT = 1000e18; // 1000 tokens
         deal(address(SUSDE), jake, INITIAL_AMOUNT);
@@ -101,15 +100,14 @@ contract PoolTest is Test {
         GAUNTLET_USDC_PRIME.approve(address(pool1), INITIAL_AMOUNT);
 
         pool1.addLiquidity(amounts, 0, address(this));
-        vm.stopPrank();
 
         // Store initial balances
-        uint256 initialSUSDeBalance = SUSDE.balanceOf(address(pool1));
         uint256 initialCurveLPBalance = SDAISUSDE_CURVE.balanceOf(address(pool1));
 
         // Remove sUSDe (index 0)
-        vm.prank(jake);
         pool1.removeToken(0);
+        
+        vm.stopPrank();
 
         // Verify pool state after removal
         assertEq(pool1.numTokens(), 3);

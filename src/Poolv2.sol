@@ -11,6 +11,9 @@ import {IRateProvider} from "./RateProvider/IRateProvider.sol";
 import {LogExpMath} from "./BalancerLibCode/LogExpMath.sol";
 import {PoolToken} from "./PoolToken.sol";
 
+import {console} from "forge-std/console.sol";
+import {ICurvePool} from "./interfaces/ICurvePool.sol";
+
 contract Pool is OwnableRoles, ReentrancyGuard {
     uint256 constant PRECISION = 1_000_000_000_000_000_000;
     uint256 constant MAX_NUM_TOKENS = 32;
@@ -93,6 +96,7 @@ contract Pool is OwnableRoles, ReentrancyGuard {
     event StopRamp();
     event SetStaking(address vaultAddress);
     event SetGuardian(address indexed caller, address guardian);
+    event TokenRemoved(uint256 indexed tokenIndex, address indexed token);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                             AUTH                           */
@@ -136,6 +140,11 @@ contract Pool is OwnableRoles, ReentrancyGuard {
     uint256 packedPoolVirtualBalance; // vbProd (128) | vbSum (128)
     // vbProd: pi, product term `product((w_i * D / x_i)^(w_i n))`
     // vbSum: sigma, sum term `sum(x_i)`
+
+    // Add new state variables
+    address public constant CURVE_SUSDE_SDAI_POOL = 0x167478921b907422F8E88B43C4Af2B8BEa278d3A; // Replace with actual address
+    address public constant SUSDE = 0x9D39A5DE30e57443BfF2A8307A4256c8797A3497; // Replace with actual sUSDe address
+    address public constant SDAI = 0x83F20F44975D03b1b09e64809B757c47f942BEeA; // Replace with actual sDAI address
 
     /// @notice constructor
     /// @dev sum of all weights
@@ -964,6 +973,59 @@ contract Pool is OwnableRoles, ReentrancyGuard {
         if (_lpAmount < minLpAmount_) revert Pool__InvalidParams();
         PoolToken(tokenAddress).mint(receiver_, _lpAmount);
         emit AddToken(_prevNumTokens, token_, rateProvider_, _rate, weight_, amount_);
+    }
+
+    /// @notice Remove a token from the pool
+    /// @dev Rebalances the weights of remaining tokens
+    /// @param tokenIndex_ Index of the token to remove
+    function removeToken(uint256 tokenIndex_) external onlyOwner {
+        if (paused) revert Pool__Paused();
+        if (tokenIndex_ >= numTokens) revert Pool__IndexOutOfBounds();
+        if (numTokens <= 2) revert Pool__MustBeInitiatedWithMoreThanOneToken();
+        // Fetch token details
+        address token = tokens[tokenIndex_];
+        (, , uint256 _packedWeight) = _unpackVirtualBalance(packedVirtualBalances[tokenIndex_]);
+        // Update numTokens and remove from arrays
+        uint256 lastIndex = numTokens - 1;
+        tokens[tokenIndex_] = tokens[lastIndex];
+        rateProviders[tokenIndex_] = rateProviders[lastIndex];
+        packedVirtualBalances[tokenIndex_] = packedVirtualBalances[lastIndex];
+        rateMultipliers[tokenIndex_] = rateMultipliers[lastIndex];
+        numTokens = lastIndex;
+        // Redistribute weights
+        (uint256 removedWeight, , , ) = _unpackWeight(_packedWeight);
+        uint256 remainingWeight = PRECISION - removedWeight;
+        uint256 sumWeight;
+        
+        for (uint256 i = 0; i < numTokens; i++) {
+            (uint256 vb, uint256 r, uint256 w) = _unpackVirtualBalance(packedVirtualBalances[i]);
+            uint256 newWeight;
+            if (i == (numTokens - 1)) {
+                newWeight = PRECISION - sumWeight;
+                packedVirtualBalances[i] = _packVirtualBalance(vb, r, _packWeight(newWeight, newWeight, PRECISION, PRECISION));
+                break;
+            }
+            (uint256 currentWeight, , , ) = _unpackWeight(w);
+            newWeight = currentWeight * PRECISION / remainingWeight;
+            packedVirtualBalances[i] = _packVirtualBalance(vb, r, _packWeight(newWeight, newWeight, PRECISION, PRECISION));
+            sumWeight += newWeight;
+        }
+        // If token is sUSDe, handle Curve pool interaction
+        if (token == SUSDE) {
+            uint256 balance = ERC20(SUSDE).balanceOf(address(this));
+            
+            // Approve Curve pool to spend sUSDe
+            SafeTransferLib.safeApprove(SUSDE, CURVE_SUSDE_SDAI_POOL, balance);
+            
+            // Add liquidity to Curve pool - [sDAI, sUSDe]
+            uint256[2] memory amounts;
+            amounts[1] = balance; // sUSDe amount
+            ICurvePool(CURVE_SUSDE_SDAI_POOL).add_liquidity(amounts, 0); // min_mint_amount = 0
+        }
+        // Recalculate virtual balance product and sum
+        (uint256 vbProd, uint256 vbSum) = _calculateVirtualBalanceProdSum();
+        packedPoolVirtualBalance = _packPoolVirtualBalance(vbProd, vbSum);
+        emit TokenRemoved(tokenIndex_, token);
     }
 
     /// @notice rescue tokens from this contract

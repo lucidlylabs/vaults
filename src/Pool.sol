@@ -357,7 +357,6 @@ contract Pool is Ownable, ReentrancyGuard {
         // update rates
         (_virtualBalanceProd, _virtualBalanceSum) = _updateRates(_tokens, _virtualBalanceProd, _virtualBalanceSum);
         uint256 _prevSupply = supply;
-        console.log("_prevSupply: ", _prevSupply);
 
         uint256 _virtualBalanceProdFinal = _virtualBalanceProd;
         uint256 _virtualBalanceSumFinal = _virtualBalanceSum;
@@ -369,10 +368,7 @@ contract Pool is Ownable, ReentrancyGuard {
             if (t == _numTokens) break;
 
             uint256 __amount = amounts_[t];
-            console.log("t: ", t);
-            console.log("token: ", tokens[t]);
             uint256 _adjustedAmount = FixedPointMathLib.mulWad(__amount, rateMultipliers[t]); // (__amount * rateMultipliers[t]) / PRECISION
-            console.log("_adjustedAmount: ", _adjustedAmount);
 
             if (_adjustedAmount == 0) {
                 if (!(_prevSupply > 0)) {
