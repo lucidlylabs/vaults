@@ -952,64 +952,64 @@ contract Pool is Ownable, ReentrancyGuard {
         emit AddToken(_prevNumTokens, token_, rateProvider_, _rate, weight_, amount_);
     }
 
-    /// @notice Remove a token from the pool
-    /// @dev Rebalances the weights of remaining tokens
-    /// @param tokenIndex_ Index of the token to remove
-    function removeToken(uint256 tokenIndex_) external onlyOwner {
-        if (paused) revert Pool__Paused();
-        if (tokenIndex_ >= numTokens) revert Pool__IndexOutOfBounds();
-        if (numTokens <= 2) revert Pool__MustBeInitiatedWithMoreThanOneToken();
-
-        // Fetch token details
-        address token = tokens[tokenIndex_];
-        (, , uint256 _packedWeight) = _unpackVirtualBalance(packedVirtualBalances[tokenIndex_]);
-
-        // Update numTokens and remove from arrays
-        uint256 lastIndex = numTokens - 1;
-        tokens[tokenIndex_] = tokens[lastIndex];
-        rateProviders[tokenIndex_] = rateProviders[lastIndex];
-        packedVirtualBalances[tokenIndex_] = packedVirtualBalances[lastIndex];
-        rateMultipliers[tokenIndex_] = rateMultipliers[lastIndex];
-        numTokens = lastIndex;
-
-        // Redistribute weights
-        (uint256 removedWeight, , , ) = _unpackWeight(_packedWeight);
-        uint256 remainingWeight = PRECISION - removedWeight;
-        uint256 sumWeight;
-        
-        for (uint256 i = 0; i < numTokens; i++) {
-            (uint256 vb, uint256 r, uint256 w) = _unpackVirtualBalance(packedVirtualBalances[i]);
-            uint256 newWeight;
-            if (i == (numTokens - 1)) {
-                newWeight = PRECISION - sumWeight;
-                packedVirtualBalances[i] = _packVirtualBalance(vb, r, _packWeight(newWeight, newWeight, PRECISION, PRECISION));
-                break;
-            }
-            (uint256 currentWeight, , , ) = _unpackWeight(w);
-            newWeight = currentWeight * PRECISION / remainingWeight;
-            packedVirtualBalances[i] = _packVirtualBalance(vb, r, _packWeight(newWeight, newWeight, PRECISION, PRECISION));
-            sumWeight += newWeight;
-        }
-
-        // If token is sUSDe, handle Curve pool interaction
-        if (token == SUSDE) {
-            uint256 balance = ERC20(SUSDE).balanceOf(address(this));
-            
-            // Approve Curve pool to spend sUSDe
-            SafeTransferLib.safeApprove(SUSDE, CURVE_SUSDE_SDAI_POOL, balance);
-            
-            // Add liquidity to Curve pool - [sDAI, sUSDe]
-            uint256[2] memory amounts;
-            amounts[1] = balance; // sUSDe amount
-            ICurvePool(CURVE_SUSDE_SDAI_POOL).add_liquidity(amounts, 0); // min_mint_amount = 0
-        }
-
-        // Recalculate virtual balance product and sum
-        (uint256 vbProd, uint256 vbSum) = _calculateVirtualBalanceProdSum();
-        packedPoolVirtualBalance = _packPoolVirtualBalance(vbProd, vbSum);
-
-        emit TokenRemoved(tokenIndex_, token);
-    }
+    //     /// @notice Remove a token from the pool
+    //     /// @dev Rebalances the weights of remaining tokens
+    //     /// @param tokenIndex_ Index of the token to remove
+    //     function removeToken(uint256 tokenIndex_) external onlyOwner {
+    //         if (paused) revert Pool__Paused();
+    //         if (tokenIndex_ >= numTokens) revert Pool__IndexOutOfBounds();
+    //         if (numTokens <= 2) revert Pool__MustBeInitiatedWithMoreThanOneToken();
+    //
+    //         // Fetch token details
+    //         address token = tokens[tokenIndex_];
+    //         (, , uint256 _packedWeight) = _unpackVirtualBalance(packedVirtualBalances[tokenIndex_]);
+    //
+    //         // Update numTokens and remove from arrays
+    //         uint256 lastIndex = numTokens - 1;
+    //         tokens[tokenIndex_] = tokens[lastIndex];
+    //         rateProviders[tokenIndex_] = rateProviders[lastIndex];
+    //         packedVirtualBalances[tokenIndex_] = packedVirtualBalances[lastIndex];
+    //         rateMultipliers[tokenIndex_] = rateMultipliers[lastIndex];
+    //         numTokens = lastIndex;
+    //
+    //         // Redistribute weights
+    //         (uint256 removedWeight, , , ) = _unpackWeight(_packedWeight);
+    //         uint256 remainingWeight = PRECISION - removedWeight;
+    //         uint256 sumWeight;
+    //
+    //         for (uint256 i = 0; i < numTokens; i++) {
+    //             (uint256 vb, uint256 r, uint256 w) = _unpackVirtualBalance(packedVirtualBalances[i]);
+    //             uint256 newWeight;
+    //             if (i == (numTokens - 1)) {
+    //                 newWeight = PRECISION - sumWeight;
+    //                 packedVirtualBalances[i] = _packVirtualBalance(vb, r, _packWeight(newWeight, newWeight, PRECISION, PRECISION));
+    //                 break;
+    //             }
+    //             (uint256 currentWeight, , , ) = _unpackWeight(w);
+    //             newWeight = currentWeight * PRECISION / remainingWeight;
+    //             packedVirtualBalances[i] = _packVirtualBalance(vb, r, _packWeight(newWeight, newWeight, PRECISION, PRECISION));
+    //             sumWeight += newWeight;
+    //         }
+    //
+    //         // If token is sUSDe, handle Curve pool interaction
+    //         if (token == SUSDE) {
+    //             uint256 balance = ERC20(SUSDE).balanceOf(address(this));
+    //
+    //             // Approve Curve pool to spend sUSDe
+    //             SafeTransferLib.safeApprove(SUSDE, CURVE_SUSDE_SDAI_POOL, balance);
+    //
+    //             // Add liquidity to Curve pool - [sDAI, sUSDe]
+    //             uint256[2] memory amounts;
+    //             amounts[1] = balance; // sUSDe amount
+    //             ICurvePool(CURVE_SUSDE_SDAI_POOL).add_liquidity(amounts, 0); // min_mint_amount = 0
+    //         }
+    //
+    //         // Recalculate virtual balance product and sum
+    //         (uint256 vbProd, uint256 vbSum) = _calculateVirtualBalanceProdSum();
+    //         packedPoolVirtualBalance = _packPoolVirtualBalance(vbProd, vbSum);
+    //
+    //         emit TokenRemoved(tokenIndex_, token);
+    //     }
 
     /// @notice rescue tokens from this contract
     /// @dev cannot be used to rescue pool tokens

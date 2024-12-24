@@ -984,7 +984,7 @@ contract Pool is OwnableRoles, ReentrancyGuard {
         if (numTokens <= 2) revert Pool__MustBeInitiatedWithMoreThanOneToken();
         // Fetch token details
         address token = tokens[tokenIndex_];
-        (, , uint256 _packedWeight) = _unpackVirtualBalance(packedVirtualBalances[tokenIndex_]);
+        (,, uint256 _packedWeight) = _unpackVirtualBalance(packedVirtualBalances[tokenIndex_]);
         // Update numTokens and remove from arrays
         uint256 lastIndex = numTokens - 1;
         tokens[tokenIndex_] = tokens[lastIndex];
@@ -993,34 +993,49 @@ contract Pool is OwnableRoles, ReentrancyGuard {
         rateMultipliers[tokenIndex_] = rateMultipliers[lastIndex];
         numTokens = lastIndex;
         // Redistribute weights
-        (uint256 removedWeight, , , ) = _unpackWeight(_packedWeight);
+        (uint256 removedWeight,,,) = _unpackWeight(_packedWeight);
         uint256 remainingWeight = PRECISION - removedWeight;
         uint256 sumWeight;
-        
+
         for (uint256 i = 0; i < numTokens; i++) {
             (uint256 vb, uint256 r, uint256 w) = _unpackVirtualBalance(packedVirtualBalances[i]);
             uint256 newWeight;
             if (i == (numTokens - 1)) {
                 newWeight = PRECISION - sumWeight;
-                packedVirtualBalances[i] = _packVirtualBalance(vb, r, _packWeight(newWeight, newWeight, PRECISION, PRECISION));
+                packedVirtualBalances[i] =
+                    _packVirtualBalance(vb, r, _packWeight(newWeight, newWeight, PRECISION, PRECISION));
                 break;
             }
-            (uint256 currentWeight, , , ) = _unpackWeight(w);
+            (uint256 currentWeight,,,) = _unpackWeight(w);
             newWeight = currentWeight * PRECISION / remainingWeight;
-            packedVirtualBalances[i] = _packVirtualBalance(vb, r, _packWeight(newWeight, newWeight, PRECISION, PRECISION));
+            packedVirtualBalances[i] =
+                _packVirtualBalance(vb, r, _packWeight(newWeight, newWeight, PRECISION, PRECISION));
             sumWeight += newWeight;
         }
+        // at this stage - there are 3 tokens in the pool according to the pool storage.
+
         // If token is sUSDe, handle Curve pool interaction
         if (token == SUSDE) {
-            uint256 balance = ERC20(SUSDE).balanceOf(address(this));
-            
+            uint256 balance = ERC20(SUSDE).balanceOf(address(this)); // aim to remove this token and make it's balance 0.
+
             // Approve Curve pool to spend sUSDe
+            // msg.sender = address(this)
             SafeTransferLib.safeApprove(SUSDE, CURVE_SUSDE_SDAI_POOL, balance);
-            
+
+            // remove susde from the Pool. D (supply) should decrease.
+            // use that susde to lp into curve and get sdaisusde lp token
+            // deposit that lp token in the Pool. D should increase
+            // balance out the total PoolToken supply in the transaction
+
             // Add liquidity to Curve pool - [sDAI, sUSDe]
-            uint256[2] memory amounts;
+            uint256[] memory amounts = new uint256[](2);
             amounts[1] = balance; // sUSDe amount
-            ICurvePool(CURVE_SUSDE_SDAI_POOL).add_liquidity(amounts, 0); // min_mint_amount = 0
+            (bool success, bytes memory data) = CURVE_SUSDE_SDAI_POOL.call(
+                abi.encodeWithSelector(bytes4(keccak256("add_liquidity(uint256[],uint256)")), amounts, 0)
+            );
+            require(success, "could not add liquidity to curve");
+            uint256 lpMinted = abi.decode(data, (uint256));
+            // ICurvePool(CURVE_SUSDE_SDAI_POOL).add_liquidity(amounts, 0); // min_mint_amount = 0
         }
         // Recalculate virtual balance product and sum
         (uint256 vbProd, uint256 vbSum) = _calculateVirtualBalanceProdSum();
