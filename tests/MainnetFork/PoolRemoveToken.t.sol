@@ -34,13 +34,13 @@ contract PoolTest is Test {
     address bob = makeAddr("bob"); // second LP
 
     // Token addresses
+    ERC20 public SDAI = ERC20(0x83F20F44975D03b1b09e64809B757c47f942BEeA);
     ERC20 public SUSDE = ERC20(0x9D39A5DE30e57443BfF2A8307A4256c8797A3497);
     ERC20 public SDAISUSDE_CURVE = ERC20(0x167478921b907422F8E88B43C4Af2B8BEa278d3A);
     ERC20 public YPTSUSDE = ERC20(0x57fC2D9809F777Cd5c8C433442264B6E8bE7Fce4);
     ERC20 public GAUNTLET_USDC_PRIME = ERC20(0xdd0f28e19C1780eb6396170735D45153D261490d);
 
-    function setUp() public {
-    }
+    function setUp() public {}
 
     function testRemoveToken() public {
         vm.createSelectFork(vm.rpcUrl("http://127.0.0.1:8545"));
@@ -50,7 +50,7 @@ contract PoolTest is Test {
         deal(address(SDAISUSDE_CURVE), jake, INITIAL_AMOUNT);
         deal(address(YPTSUSDE), jake, INITIAL_AMOUNT);
         deal(address(GAUNTLET_USDC_PRIME), jake, INITIAL_AMOUNT);
-        
+
         uint256 n = 4;
         uint256[] memory weights1 = new uint256[](n);
 
@@ -78,14 +78,8 @@ contract PoolTest is Test {
         // Deploy pool
         vm.startPrank(jake);
         PoolToken poolToken1 = new PoolToken("PoolToken1", "XYZ-PT1", 18, jake);
-        Pool pool1 = new Pool(
-            address(poolToken1), 
-            calculateWProd(weights1) * 10, 
-            tokens0, 
-            mockRateProviders, 
-            weights1, 
-            jake
-        );
+        Pool pool1 =
+            new Pool(address(poolToken1), calculateWProd(weights1) * 10, tokens0, mockRateProviders, weights1, jake);
         poolToken1.setPool(address(pool1));
 
         uint256[] memory amounts = new uint256[](4);
@@ -106,7 +100,7 @@ contract PoolTest is Test {
 
         // Remove sUSDe (index 0)
         pool1.removeToken(0);
-        
+
         vm.stopPrank();
 
         // Verify pool state after removal
@@ -114,7 +108,7 @@ contract PoolTest is Test {
 
         // Verify weights are redistributed equally
         for (uint256 i = 0; i < 3; i++) {
-            (uint256 weight, , , ) = pool1.weight(i);
+            (uint256 weight,,,) = pool1.weight(i);
             assertEq(weight, PRECISION / 3);
         }
 
@@ -124,6 +118,31 @@ contract PoolTest is Test {
 
         // Verify sUSDe balance is 0
         assertEq(SUSDE.balanceOf(address(pool1)), 0);
+    }
+
+    function testAddLiquidityToCurve() public {
+        vm.createSelectFork(vm.rpcUrl("http://127.0.0.1:8545"));
+
+        uint256 INITIAL_AMOUNT = 1000e18; // 1000 tokens
+        deal(address(SDAI), jake, INITIAL_AMOUNT);
+        deal(address(SUSDE), jake, INITIAL_AMOUNT);
+        deal(address(SDAISUSDE_CURVE), jake, INITIAL_AMOUNT);
+        deal(address(YPTSUSDE), jake, INITIAL_AMOUNT);
+        deal(address(GAUNTLET_USDC_PRIME), jake, INITIAL_AMOUNT);
+
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 500e18;
+        amounts[1] = 500e18;
+
+        vm.startPrank(jake);
+        SDAI.approve(address(SDAISUSDE_CURVE), amounts[0]);
+        SUSDE.approve(address(SDAISUSDE_CURVE), amounts[0]);
+        address curvePool = address(SDAISUSDE_CURVE);
+        (bool success, bytes memory data) =
+            curvePool.call(abi.encodeWithSelector(bytes4(keccak256("add_liquidity(uint256[],uint256)")), amounts, 0));
+        require(success, "could not add liquidity to curve");
+        uint256 lpMinted = abi.decode(data, (uint256));
+        vm.stopPrank();
     }
 
     function calculateWProd(uint256[] memory _weights) public pure returns (uint256) {
