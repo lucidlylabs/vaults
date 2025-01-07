@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
-
-pragma solidity 0.8.28;
+pragma solidity 0.8.26;
 
 library WeirollPlanner {
     function stringToBytes(string memory input) internal pure returns (bytes memory output) {
