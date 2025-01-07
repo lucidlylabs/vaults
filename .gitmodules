@@ -16,3 +16,6 @@
 [submodule "lib/weiroll-foundry"]
 	path = lib/weiroll-foundry
 	url = https://github.com/dantop114/weiroll-foundry
+[submodule "lib/enso-weiroll"]
+	path = lib/enso-weiroll
+	url = https://github.com/EnsoFinance/enso-weiroll
