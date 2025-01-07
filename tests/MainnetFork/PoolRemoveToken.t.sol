@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.0;
 
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
@@ -16,6 +16,7 @@ import {MockToken} from "../../src/Mocks/MockToken.sol";
 import {MockRateProvider} from "../../src/Mocks/MockRateProvider.sol";
 import {PoolEstimator} from "../PoolEstimator.sol";
 import {LogExpMath} from "../../src/BalancerLibCode/LogExpMath.sol";
+import {WeirollPlanner} from "../utils/WeirollPlanner.sol";
 
 contract PoolTest is Test {
     Pool pool;
@@ -99,7 +100,44 @@ contract PoolTest is Test {
         uint256 initialCurveLPBalance = SDAISUSDE_CURVE.balanceOf(address(pool1));
 
         // Remove sUSDe (index 0)
-        pool1.removeToken(0);
+        uint256 poolSusdeBalance = SUSDE.balanceOf(address(pool1));
+
+        // Approve Curve pool to spend sUSDe
+        bytes32 command1 = WeirollPlanner.buildCommand(
+            ERC20.approve.selector,
+            0x00,
+            bytes6(0x0001ffffffff),
+            bytes1(0x02),
+            address(SUSDE)
+        );
+
+        // Add liquidity to Curve pool - [sDAI, sUSDe]
+        uint256[] memory amounts = new uint256[](2);
+        amounts[1] = balance; // sUSDe amount
+        
+        bytes32 command2 = WeirollPlanner.buildCommand(
+            bytes4(keccak256("add_liquidity(uint256[],uint256)")),
+            0x00,
+            bytes6(0x8204ffffffff),
+            bytes1(0x02),
+            address(SDAISUSDE_CURVE)
+        );
+
+        bytes32[] memory commands = new bytes32[](1);
+        commands[0] = command1;
+        commands[1] = command2;
+
+        bytes[] memory state = new bytes[](2);
+        state[0] = abi.encode(
+            uint256(5),
+            address(SDAISUSDE_CURVE),
+            poolSusdeBalance,
+            uint256(amounts[0]),
+            uint256(amounts[1]),
+            uint256(min_mint_amount)
+        );
+
+        pool1.removeToken(0, commands, state);
 
         vm.stopPrank();
 

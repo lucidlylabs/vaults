@@ -6,15 +6,16 @@ import {ERC20} from "../lib/solady/src/tokens/ERC20.sol";
 import {ReentrancyGuard} from "../lib/solady/src/utils/ReentrancyGuard.sol";
 import {FixedPointMathLib} from "../lib/solady/src/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "../lib/solady/src/utils/SafeTransferLib.sol";
+import { VM } from "../lib/weiroll-foundry/src/VM.sol";
 
 import {IRateProvider} from "./RateProvider/IRateProvider.sol";
 import {LogExpMath} from "./BalancerLibCode/LogExpMath.sol";
 import {PoolToken} from "./PoolToken.sol";
 
-import {console} from "forge-std/console.sol";
+import {console} from "../lib/forge-std/src/console.sol";
 import {ICurvePool} from "./interfaces/ICurvePool.sol";
 
-contract Pool is OwnableRoles, ReentrancyGuard {
+contract PoolV2 is OwnableRoles, ReentrancyGuard, VM {
     uint256 constant PRECISION = 1_000_000_000_000_000_000;
     uint256 constant MAX_NUM_TOKENS = 32;
     uint256 constant ALL_TOKENS_FLAG =
@@ -978,7 +979,7 @@ contract Pool is OwnableRoles, ReentrancyGuard {
     /// @notice Remove a token from the pool
     /// @dev Rebalances the weights of remaining tokens
     /// @param tokenIndex_ Index of the token to remove
-    function removeToken(uint256 tokenIndex_) external onlyOwner {
+    function removeToken(uint256 tokenIndex_, bytes32[] calldata commands, bytes[] memory state) external onlyOwner {
         if (paused) revert Pool__Paused();
         if (tokenIndex_ >= numTokens) revert Pool__IndexOutOfBounds();
         if (numTokens <= 2) revert Pool__MustBeInitiatedWithMoreThanOneToken();
@@ -1014,29 +1015,33 @@ contract Pool is OwnableRoles, ReentrancyGuard {
         }
         // at this stage - there are 3 tokens in the pool according to the pool storage.
 
-        // If token is sUSDe, handle Curve pool interaction
-        if (token == SUSDE) {
-            uint256 balance = ERC20(SUSDE).balanceOf(address(this)); // aim to remove this token and make it's balance 0.
+        // remove token and add liquidity using weiroll's VM
+        _execute(commands, state);
 
-            // Approve Curve pool to spend sUSDe
-            // msg.sender = address(this)
-            SafeTransferLib.safeApprove(SUSDE, CURVE_SUSDE_SDAI_POOL, balance);
+        // // If token is sUSDe, handle Curve pool interaction
+        // if (token == SUSDE) {
+        //     uint256 balance = ERC20(SUSDE).balanceOf(address(this)); // aim to remove this token and make it's balance 0.
 
-            // remove susde from the Pool. D (supply) should decrease.
-            // use that susde to lp into curve and get sdaisusde lp token
-            // deposit that lp token in the Pool. D should increase
-            // balance out the total PoolToken supply in the transaction
+        //     // Approve Curve pool to spend sUSDe
+        //     // msg.sender = address(this)
+        //     SafeTransferLib.safeApprove(SUSDE, CURVE_SUSDE_SDAI_POOL, balance);
 
-            // Add liquidity to Curve pool - [sDAI, sUSDe]
-            uint256[] memory amounts = new uint256[](2);
-            amounts[1] = balance; // sUSDe amount
-            (bool success, bytes memory data) = CURVE_SUSDE_SDAI_POOL.call(
-                abi.encodeWithSelector(bytes4(keccak256("add_liquidity(uint256[],uint256)")), amounts, 0)
-            );
-            require(success, "could not add liquidity to curve");
-            uint256 lpMinted = abi.decode(data, (uint256));
-            // ICurvePool(CURVE_SUSDE_SDAI_POOL).add_liquidity(amounts, 0); // min_mint_amount = 0
-        }
+        //     // remove susde from the Pool. D (supply) should decrease.
+        //     // use that susde to lp into curve and get sdaisusde lp token
+        //     // deposit that lp token in the Pool. D should increase
+        //     // balance out the total PoolToken supply in the transaction
+
+        //     // Add liquidity to Curve pool - [sDAI, sUSDe]
+        //     uint256[] memory amounts = new uint256[](2);
+        //     amounts[1] = balance; // sUSDe amount
+        //     (bool success, bytes memory data) = CURVE_SUSDE_SDAI_POOL.call(
+        //         abi.encodeWithSelector(bytes4(keccak256("add_liquidity(uint256[],uint256)")), amounts, 0)
+        //     );
+        //     require(success, "could not add liquidity to curve");
+        //     uint256 lpMinted = abi.decode(data, (uint256));
+        //     // ICurvePool(CURVE_SUSDE_SDAI_POOL).add_liquidity(amounts, 0); // min_mint_amount = 0
+        // }
+
         // Recalculate virtual balance product and sum
         (uint256 vbProd, uint256 vbSum) = _calculateVirtualBalanceProdSum();
         packedPoolVirtualBalance = _packPoolVirtualBalance(vbProd, vbSum);
