@@ -98,10 +98,10 @@ contract PoolRemoveToken is Test {
         // mint tokens to first lp
         deal(address(token0), alice, 100_000_000 * 1e8); // 100,000,000 SWBTCWBTC_CURVE
         deal(address(token1), alice, 100_000_000 * 1e18); // 100,000,000 SWBTC
-        deal(address(token2), alice, 100_000_000 * 1e6); // 100,000,000 USDC
+        deal(address(token2), alice, 100_000_000 * 1e8); // 100,000,000 cbBTC
         deal(address(token3), alice, 100_000_000 * 1e8); // 100,000,000 SWBTC
 
-        uint256 total = 10_000 * 1e8; // considering we seed 10000 WBTC worth of assets
+        uint256 total = 10_000 * 1e18; // considering we seed 10000 WBTC worth of assets
 
         for (uint256 i = 0; i < 4; i++) {
             address token = tokens[i];
@@ -112,8 +112,7 @@ contract PoolRemoveToken is Test {
             vm.stopPrank();
 
             uint256 unadjustedRate = IRateProvider(rateProvider).rate(token); // price of an asset in WBTC, scaled to 18 precision
-            uint256 amount =
-                (total * weights[i] * 1e18 * 1e10) / (unadjustedRate * (10 ** (36 - ERC20(token).decimals())));
+            uint256 amount = (total * weights[i] * 1e18) / (unadjustedRate * (10 ** (36 - ERC20(token).decimals())));
             seedAmounts[i] = amount;
         }
 
@@ -144,6 +143,54 @@ contract PoolRemoveToken is Test {
             amounts[i] = amount;
         }
         return amounts;
+    }
+
+    function test__PoolRemoveToken() public {
+        uint256 _numTokens = pool.numTokens();
+
+        deal(address(token0), jake, 100_000_000 * 1e8); // 100,000,000 SWBTCWBTC_CURVE
+        deal(address(token1), jake, 100_000_000 * 1e18); // 100,000,000 SWBTC
+        deal(address(token2), jake, 100_000_000 * 1e8); // 100,000,000 cbBTC
+        deal(address(token3), jake, 100_000_000 * 1e8); // 100,000,000 SWBTC
+
+        console.log("Pool Supply:", pool.supply());
+        console.log("token3 balance:", token3.balanceOf(address(pool)));
+
+        uint256 token3Balance = token3.balanceOf(address(pool));
+        uint256 token3BalanceWorth = FixedPointMathLib.mulWad(
+            FixedPointMathLib.mulWad(token3Balance, (10 ** (36 - token3.decimals()))), rp.rate(pool.tokens(3))
+        );
+        console.log("Worth of token3 balance in the  pool:", token3BalanceWorth);
+
+        uint256[] memory _amountsToAdd = new uint256[](_numTokens);
+
+        vm.startPrank(alice);
+        pool.addLiquidity(_amountsToAdd, 0, alice);
+        vm.stopPrank();
+    }
+
+    function test__AssertVbSumAndSupply() public {
+        uint256 _supply;
+        uint256 _numTokens = pool.numTokens();
+
+        uint256 lpAmount;
+
+        uint256 _vbSum = 0;
+
+        for (uint256 t = 0; t < MAX_NUM_TOKENS; t++) {
+            if (t == _numTokens) break;
+            uint256 _virtualBalance = pool.packedVirtualBalances(t) & (2 ** 96 - 1);
+        }
+    }
+
+    function _calculateVirtualBalanceSum() internal view returns (uint256) {
+        uint256 _numTokens = pool.numTokens();
+        uint256 _sum = 0;
+        for (uint256 t = 0; t < MAX_NUM_TOKENS; t++) {
+            if (t == _numTokens) break;
+            _sum = FixedPointMathLib.rawAdd(_sum, pool.packedVirtualBalances(t) & (2 ** 96 - 1));
+        }
+        return _sum;
     }
 
     function test__SetWeightToZero() public {
