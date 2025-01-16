@@ -85,7 +85,7 @@ contract PoolOwnerTest is Test {
         pool = new Pool(address(poolToken), amplification, tokens, rateProviders, weights, jake);
 
         // deploy staking contract
-        vault = new Vault(address(poolToken), "XYZ Vault Share", "XYZVS", 100, jake, jake);
+        vault = new Vault(address(poolToken), "XYZ Vault Share", "XYZVS", 100, 100, jake, jake, jake);
 
         vm.startPrank(jake);
         ownerContract = new PoolOwner(address(pool));

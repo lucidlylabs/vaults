@@ -104,7 +104,7 @@ contract ManualRegistryTest is Test {
         pool0 = new Pool(address(poolToken0), amplification, tokens0, rateProviders0, weights0, jake);
 
         // deploy staking contract
-        vault0 = new Vault(address(poolToken0), "XYZ Vault Share", "XYZVS", 100, jake, jake);
+        vault0 = new Vault(address(poolToken0), "XYZ Vault Share", "XYZVS", 100, 100, jake, jake, jake);
 
         // set staking on pool
         vm.startPrank(jake);
@@ -178,7 +178,7 @@ contract ManualRegistryTest is Test {
         pool1 = new Pool(address(poolToken1), amplification, tokens1, rateProviders1, weights1, jake);
 
         // deploy staking contract
-        vault1 = new Vault(address(poolToken1), "XYZ Vault Share", "XYZVS", 100, jake, jake);
+        vault1 = new Vault(address(poolToken1), "XYZ Vault Share", "XYZVS", 100, 100, jake, jake, jake);
 
         // set staking on pool
         vm.startPrank(jake);

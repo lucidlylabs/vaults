@@ -79,7 +79,7 @@ contract AggregatorTest is Test {
         pool = new Pool(address(poolToken), amplification, tokens, rateProviders, weights, jake);
 
         // deploy staking contract
-        vault = new Vault(address(poolToken), "XYZ Vault Share", "XYZVS", 100, jake, jake);
+        vault = new Vault(address(poolToken), "XYZ Vault Share", "XYZVS", 100, 100, jake, jake, jake);
 
         // set staking on pool
         vm.startPrank(jake);
