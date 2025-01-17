@@ -23,17 +23,44 @@ contract Vault is ERC4626Fees, Ownable {
     event SetDepositFee(uint256 indexed depositFee);
     event SetManagementFee(uint256 indexed managementFeeInBps);
     event AccruedManagementFee(uint256 feeAmount);
+    event SetPerformanceFee(uint256 indexed performanceFeeInBps);
+    event SetPerformanceFeeRecipient(address indexed performanceFeeRecipient);
+    event AccruedPerformanceFee(uint256 feeAmount);
+    event ClaimedFees(uint256 managementFees, uint256 performanceFees);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                           STATE                            */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    uint256 public depositFeeInBps;
-    uint256 public managementFeeInBps; // Annualized management fee in basis points
-    uint256 public lastFeeAccrual; // Timestamp of the last management fee accrual
+    /// @dev performance fee in basis points
+    uint256 public performanceFeeInBps;
 
+    /// @dev high-water mark for calculating performance fee
+    uint256 public highWaterMark;
+
+    /// @dev peformance fee recipient
+    address public performanceFeeRecipient;
+
+    /// @dev deposit fee
+    uint256 public depositFeeInBps;
+
+    /// @dev annualized management fee in basis points
+    uint256 public managementFeeInBps;
+
+    /// @dev timestamp of the last management fee accrual
+    uint256 public lastFeeAccrual;
+
+    /// @dev fee address
     address public protocolFeeAddress;
+
+    /// @dev management fee recipient
     address public managementFeeRecipient;
+
+    /// @dev management fees accrued since last claim
+    uint256 public accruedManagementFees;
+
+    /// @dev performace fees accrued since last claim
+    uint256 public accruedPerformanceFees;
 
     constructor(
         address underlying_,
@@ -51,13 +78,33 @@ contract Vault is ERC4626Fees, Ownable {
         managementFeeRecipient = managementFeeRecipient_;
         _setOwner(owner_);
         lastFeeAccrual = block.timestamp;
+        highWaterMark = totalAssets();
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                   PERFORMANCE FEE LOGIC                    */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    function _accruePerformanceFee() internal {
+        uint256 totalAssetsValue = totalAssets();
+
+        if (totalAssetsValue > highWaterMark && performanceFeeInBps > 0) {
+            uint256 profit = totalAssetsValue - highWaterMark;
+            uint256 feeAmount = (profit * performanceFeeInBps) / 10_000;
+
+            if (feeAmount > 0) {
+                accruedPerformanceFees += feeAmount;
+            }
+
+            highWaterMark = totalAssetsValue;
+        }
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    MANAGEMENT FEE LOGIC                    */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    function accrueManagementFee() public {
+    function _accrueManagementFee() internal {
         uint256 elapsedTime = block.timestamp - lastFeeAccrual;
         if (elapsedTime == 0 || managementFeeInBps == 0) return;
 
@@ -65,8 +112,7 @@ contract Vault is ERC4626Fees, Ownable {
         uint256 feeAmount = (totalAssetsValue * elapsedTime * managementFeeInBps) / 10_000 / 365 days;
 
         if (feeAmount > 0) {
-            _mint(managementFeeRecipient, convertToShares(feeAmount));
-            emit AccruedManagementFee(feeAmount);
+            accruedManagementFees += feeAmount;
         }
 
         lastFeeAccrual = block.timestamp;
@@ -77,7 +123,8 @@ contract Vault is ERC4626Fees, Ownable {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal override {
-        accrueManagementFee();
+        _accrueManagementFee();
+        _accruePerformanceFee();
         super._deposit(caller, receiver, assets, shares);
     }
 
@@ -85,13 +132,26 @@ contract Vault is ERC4626Fees, Ownable {
         internal
         override
     {
-        accrueManagementFee();
+        _accrueManagementFee();
+        _accruePerformanceFee();
         super._withdraw(caller, receiver, owner, assets, shares);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                      FEE CONFIGURATION                     */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    function setPerformanceFeeInBps(uint256 fee_) public onlyOwner {
+        require(fee_ <= 500, "Performance fee exceeds 5%");
+        performanceFeeInBps = fee_;
+        emit SetPerformanceFee(fee_);
+    }
+
+    function setPerformanceFeeRecipient(address recipient_) public onlyOwner {
+        require(recipient_ != address(0), "Recipient cannot be zero address");
+        performanceFeeRecipient = recipient_;
+        emit SetPerformanceFeeRecipient(recipient_);
+    }
 
     function setProtocolFeeAddress(address address_) public onlyOwner {
         if (address_ == address(0)) revert Staking__ProtocolFeeAddressCannotBeZero();
@@ -122,5 +182,26 @@ contract Vault is ERC4626Fees, Ownable {
 
     function _entryFeeRecipient() internal view virtual override returns (address) {
         return protocolFeeAddress;
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                       CLAIM FEE LOGIC                      */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    function claimFees() external onlyOwner {
+        uint256 managementFeesToClaim = accruedManagementFees;
+        uint256 performanceFeesToClaim = accruedPerformanceFees;
+
+        if (managementFeesToClaim > 0) {
+            _mint(managementFeeRecipient, convertToShares(managementFeesToClaim));
+            accruedManagementFees = 0;
+        }
+
+        if (performanceFeesToClaim > 0) {
+            _mint(performanceFeeRecipient, convertToShares(performanceFeesToClaim));
+            accruedPerformanceFees = 0;
+        }
+
+        emit ClaimedFees(managementFeesToClaim, performanceFeesToClaim);
     }
 }
