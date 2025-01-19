@@ -1185,6 +1185,15 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard, VM {
         (newSupply, vbProd) = _calculateSupply(numTokens, vbSum, amplification_, vbProd, vbSum, true);
         if (newSupply >= prevSupply) revert Pool__InvalidParams();
 
+        uint256 changeInSupply = prevSupply - newSupply;
+        if (lpAmount_ < changeInSupply) revert Pool__InvalidParams();
+
+        // refund excess lpAmount_ if added
+        uint256 _lpSurplus = lpAmount_ - changeInSupply;
+        if (_lpSurplus > 0) {
+            PoolToken(tokenAddress).mint(msg.sender, _lpSurplus);
+        }
+
         supply = newSupply;
         amplification = amplification_;
         packedPoolVirtualBalance = _packPoolVirtualBalance(vbProd, vbSum);

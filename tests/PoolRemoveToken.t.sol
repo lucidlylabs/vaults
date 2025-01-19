@@ -65,8 +65,8 @@ contract PoolRemoveToken is Test {
         // set weights
         weights[0] = 20 * PRECISION / 100;
         weights[1] = 30 * PRECISION / 100;
-        weights[2] = 20 * PRECISION / 100;
-        weights[3] = 30 * PRECISION / 100;
+        weights[2] = 49 * PRECISION / 100;
+        weights[3] = 1 * PRECISION / 100;
 
         // set rateProviders
         rateProviders[0] = address(rp);
@@ -74,7 +74,6 @@ contract PoolRemoveToken is Test {
         rateProviders[2] = address(rp);
         rateProviders[3] = address(rp);
 
-        // amplification = calculateWProd(weights);
         amplification = 500 * 1e18;
 
         // deploy pool token
@@ -125,27 +124,31 @@ contract PoolRemoveToken is Test {
         vm.stopPrank();
     }
 
-    function _calculateSeedAmounts(uint256 total, uint256 quoteTokenDecimals) internal returns (uint256[] memory) {
+    function _calculateSeedAmounts(uint256 total, uint256 quoteTokenDecimals, address sender)
+        internal
+        returns (uint256[] memory)
+    {
         uint256[] memory amounts = new uint256[](4);
         for (uint256 i = 0; i < 4; i++) {
             address token = tokens[i];
             address rateProvider = rateProviders[i];
 
-            vm.startPrank(alice);
+            vm.startPrank(sender);
             require(ERC20(token).approve(address(pool), type(uint256).max), "could not approve");
             vm.stopPrank();
 
             uint256 unadjustedRate = IRateProvider(rateProvider).rate(token); // price of the asset scaled to 18 precision
 
             // considering quoteTokenDecimals is <= 18
-            uint256 amount = (total * weights[i] * 1e18 * 10 ** (18 - quoteTokenDecimals))
+            // this is redundant code
+            uint256 amount = (total * weights[i] * 1e18 * 10 ** (18 - ERC20(token).decimals()))
                 / (unadjustedRate * (10 ** (36 - ERC20(token).decimals())));
             amounts[i] = amount;
         }
         return amounts;
     }
 
-    function test__PoolRemoveToken() public {
+    function test__poolRemoveToken() public {
         uint256 _numTokens = pool.numTokens();
 
         deal(address(token0), jake, 100_000_000 * 1e8); // 100,000,000 SWBTCWBTC_CURVE
@@ -153,19 +156,33 @@ contract PoolRemoveToken is Test {
         deal(address(token2), jake, 100_000_000 * 1e8); // 100,000,000 cbBTC
         deal(address(token3), jake, 100_000_000 * 1e8); // 100,000,000 SWBTC
 
-        console.log("Pool Supply:", pool.supply());
-        console.log("token3 balance:", token3.balanceOf(address(pool)));
+        uint256[] memory amounts = new uint256[](4);
 
-        uint256 token3Balance = token3.balanceOf(address(pool));
-        uint256 token3BalanceWorth = FixedPointMathLib.mulWad(
-            FixedPointMathLib.mulWad(token3Balance, (10 ** (36 - token3.decimals()))), rp.rate(pool.tokens(3))
-        );
-        console.log("Worth of token3 balance in the  pool:", token3BalanceWorth);
+        uint256 total = 1000 * 1e18; // considering we seed 10000 WBTC worth of assets
 
-        uint256[] memory _amountsToAdd = new uint256[](_numTokens);
+        for (uint256 i = 0; i < 4; i++) {
+            address token = tokens[i];
+            address rateProvider = rateProviders[i];
 
-        vm.startPrank(alice);
-        pool.addLiquidity(_amountsToAdd, 0, alice);
+            vm.startPrank(jake);
+            require(ERC20(token).approve(address(pool), type(uint256).max), "could not approve");
+            vm.stopPrank();
+
+            uint256 unadjustedRate = IRateProvider(rateProvider).rate(token); // price of an asset in WBTC, scaled to 18 precision
+            uint256 amount = (total * weights[i] * 1e18) / (unadjustedRate * (10 ** (36 - ERC20(token).decimals())));
+            amounts[i] = amount;
+        }
+
+        amounts[3] = 0;
+
+        vm.startPrank(jake);
+        uint256 lpAdded = pool.addLiquidity(amounts, 0, jake);
+
+        console.log("lp token balance:", lpAdded);
+        console.log("tokens[3] balance in pool", ERC20(pool.tokens(3)).balanceOf(address(pool)));
+
+        poolToken.approve(address(pool), type(uint256).max);
+
         vm.stopPrank();
     }
 
@@ -174,12 +191,14 @@ contract PoolRemoveToken is Test {
         uint256 _numTokens = pool.numTokens();
 
         uint256 lpAmount;
-
-        uint256 _vbSum = 0;
+        uint256 expectedSupply;
 
         for (uint256 t = 0; t < MAX_NUM_TOKENS; t++) {
             if (t == _numTokens) break;
             uint256 _virtualBalance = pool.packedVirtualBalances(t) & (2 ** 96 - 1);
+            uint256 _rate = (pool.packedVirtualBalances(t) >> 96) & (2 ** 80 - 1);
+
+            expectedSupply += _virtualBalance * _rate / 1e18;
         }
     }
 
@@ -198,7 +217,7 @@ contract PoolRemoveToken is Test {
 
         uint256 numTokens = pool.numTokens();
         uint256 total = 1000 * 1e18;
-        uint256[] memory amounts = _calculateSeedAmounts(total, 18);
+        uint256[] memory amounts = _calculateSeedAmounts(total, 18, jake);
 
         // vm.startPrank(alice);
         // uint256 lp1 = pool.addLiquidity(amounts, 0, alice);
