@@ -202,6 +202,13 @@ contract PoolRemoveToken is Test {
 
         console.log("numTokens now:", pool.numTokens());
 
+        uint256 weightSum = 0;
+        for (uint256 i = 0; i < pool.numTokens(); i++) {
+            (uint256 weight,,,) = pool.weight(i);
+            weightSum += weight;
+        }
+        assertEq(weightSum, PRECISION, "Weight sum mismatch");
+
         vm.stopPrank();
     }
 
