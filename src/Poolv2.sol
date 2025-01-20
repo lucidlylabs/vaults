@@ -1138,10 +1138,14 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard, VM {
     /// @param lpAmount_ lpAmount to be burnt to compensate for the removed token amount
     /// @param amplification_ proposed new amplification
     /// @param newWeights_ proposed new weights
-    function removeToken(uint256 tokenIndex_, uint256 lpAmount_, uint256 amplification_, uint256[] calldata newWeights_)
-        external
-        onlyOwner
-    {
+    /// @param duration_ duration of the ramp in seconds
+    function removeToken(
+        uint256 tokenIndex_,
+        uint256 lpAmount_,
+        uint256 amplification_,
+        uint256[] calldata newWeights_,
+        uint256 duration_
+    ) external onlyOwner {
         uint256 _numTokens = numTokens;
 
         if (_numTokens <= 2) revert Pool__MustBeInitiatedWithMoreThanOneToken();
@@ -1150,6 +1154,9 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard, VM {
         if (rampLastTime != 0) revert Pool__RampActive();
         if (tokenIndex_ >= numTokens) revert Pool__IndexOutOfBounds();
         require(newWeights_.length == _numTokens - 1, "Length of newWeights_ array must be equal to numTokens - 1");
+
+        rampLastTime = block.timestamp;
+        rampStopTime = block.timestamp + duration_;
 
         address removedAddress = tokens[tokenIndex_];
         (,, uint256 _packedWeight) = _unpackVirtualBalance(packedVirtualBalances[tokenIndex_]);
