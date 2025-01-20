@@ -200,9 +200,14 @@ contract PoolRemoveToken is Test {
         console.log("lp token supply:", poolToken.totalSupply());
         console.log("pool supply:", pool.supply());
 
+        uint256[] memory newWeights = new uint256[](pool.numTokens() - 1);
+        newWeights[0] = 20 * PRECISION / 100;
+        newWeights[1] = 30 * PRECISION / 100;
+        newWeights[2] = 50 * PRECISION / 100;
+
         poolToken.approve(address(pool), type(uint256).max);
         uint256 ampl = pool.amplification();
-        pool.removeToken(3, lpAdded, ampl);
+        pool.removeToken(3, lpAdded, ampl, newWeights);
 
         console.log("after removing token -----");
         console.log("pool balances");
@@ -222,12 +227,12 @@ contract PoolRemoveToken is Test {
 
         // assertEq(weightSum, PRECISION, "Weight sum mismatch");
 
-        uint256 weight = 222_222_222_222_222_222;
-        console.log("defined weight:", weight);
+        uint256 weight0 = 222_222_222_222_222_222;
+        console.log("defined weight:", weight0);
         console.log("packing weight.");
         uint256 packed = (
-            (FixedPointMathLib.rawDiv(weight, WEIGHT_SCALE))
-                | (FixedPointMathLib.rawDiv(weight, WEIGHT_SCALE) << TARGET_WEIGHT_SHIFT)
+            (FixedPointMathLib.rawDiv(weight0, WEIGHT_SCALE))
+                | (FixedPointMathLib.rawDiv(weight0, WEIGHT_SCALE) << TARGET_WEIGHT_SHIFT)
                 | (FixedPointMathLib.rawDiv(PRECISION, WEIGHT_SCALE) << LOWER_BAND_SHIFT)
                 | (FixedPointMathLib.rawDiv(PRECISION, WEIGHT_SCALE) << UPPER_BAND_SHIFT)
         );
