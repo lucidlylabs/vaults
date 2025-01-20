@@ -189,14 +189,15 @@ contract PoolRemoveToken is Test {
         uint256 lpAdded = pool.addLiquidity(amounts, 0, jake);
 
         uint256 cachedToken3Balance = token3.balanceOf(jake);
-
         uint256 cachedPoolTokenSupply = poolToken.totalSupply();
-        uint256 cachePoolSupply = pool.supply();
+        uint256 cachedPoolSupply = pool.supply();
 
         uint256[] memory newWeights = new uint256[](pool.numTokens() - 1);
         newWeights[0] = 20 * PRECISION / 100;
         newWeights[1] = 30 * PRECISION / 100;
         newWeights[2] = 50 * PRECISION / 100;
+
+        uint256 lpBalanceBeforeRemoving = poolToken.balanceOf(jake);
 
         poolToken.approve(address(pool), type(uint256).max);
         uint256 ampl = pool.amplification();
@@ -212,36 +213,40 @@ contract PoolRemoveToken is Test {
         }
 
         uint256 lpBalanceAfterRemoving = poolToken.balanceOf(jake);
-        uint256 lpSpentByJake = lpAdded - lpBalanceAfterRemoving;
+        assert(lpBalanceBeforeRemoving > lpBalanceAfterRemoving);
+        uint256 lpSpentByJake = lpBalanceBeforeRemoving - lpBalanceAfterRemoving;
         uint256 token3Balance = token3.balanceOf(jake);
 
         assert(token3Balance > cachedToken3Balance);
-        uint256 changeInToken3Balance = token3Balance = cachedToken3Balance;
-        uint256 token3WorthReceived = changeInToken3Balance * rp.rate(address(token3)) / PRECISION;
+        uint256 changeInToken3Balance = token3Balance - cachedToken3Balance;
+        uint256 token3WorthReceived = changeInToken3Balance * rp.rate(address(token3)) / 1e8;
 
-        console.log("lp burned:", lpSpentByJake);
-        console.log("token value received:", token3WorthReceived);
+        if (lpSpentByJake > token3WorthReceived) {
+            assert((lpSpentByJake - token3WorthReceived) * 1e18 / lpSpentByJake < 99 * 1e18 / 100);
+        }
 
+        assert(cachedPoolTokenSupply == poolToken.totalSupply());
+        assert(cachedPoolSupply == pool.supply());
         assertEq(weightSum, PRECISION, "Weight sum mismatch");
 
         vm.stopPrank();
     }
 
-    function test__AssertVbSumAndSupply() public {
-        uint256 _supply;
-        uint256 _numTokens = pool.numTokens();
+    // function test__AssertVbSumAndSupply() public {
+    //     uint256 _supply;
+    //     uint256 _numTokens = pool.numTokens();
 
-        uint256 lpAmount;
-        uint256 expectedSupply;
+    //     uint256 lpAmount;
+    //     uint256 expectedSupply;
 
-        for (uint256 t = 0; t < MAX_NUM_TOKENS; t++) {
-            if (t == _numTokens) break;
-            uint256 _virtualBalance = pool.packedVirtualBalances(t) & (2 ** 96 - 1);
-            uint256 _rate = (pool.packedVirtualBalances(t) >> 96) & (2 ** 80 - 1);
+    //     for (uint256 t = 0; t < MAX_NUM_TOKENS; t++) {
+    //         if (t == _numTokens) break;
+    //         uint256 _virtualBalance = pool.packedVirtualBalances(t) & (2 ** 96 - 1);
+    //         uint256 _rate = (pool.packedVirtualBalances(t) >> 96) & (2 ** 80 - 1);
 
-            expectedSupply += _virtualBalance * _rate / 1e18;
-        }
-    }
+    //         expectedSupply += _virtualBalance * _rate / 1e18;
+    //     }
+    // }
 
     function _calculateVirtualBalanceSum() internal view returns (uint256) {
         uint256 _numTokens = pool.numTokens();
@@ -353,20 +358,20 @@ contract PoolRemoveToken is Test {
     //     vm.revertToState(ss3);
     // }
 
-    function _getWeightOfToken(uint256 token) internal returns (uint256) {
-        uint256 numTokens = pool.numTokens();
-        uint256 totalVb;
-        for (uint256 i = 0; i < numTokens; i++) {
-            totalVb = totalVb + pool.virtualBalance(i);
-        }
+    // function _getWeightOfToken(uint256 token) internal returns (uint256) {
+    //     uint256 numTokens = pool.numTokens();
+    //     uint256 totalVb;
+    //     for (uint256 i = 0; i < numTokens; i++) {
+    //         totalVb = totalVb + pool.virtualBalance(i);
+    //     }
 
-        return pool.virtualBalance(token) * PRECISION / totalVb;
-    }
+    //     return pool.virtualBalance(token) * PRECISION / totalVb;
+    // }
 
-    function _getTokenAmountFromLp(uint256 lpAmount, uint256 token) internal returns (uint256) {
-        uint256 rate = IRateProvider(pool.rateProviders(token)).rate(pool.tokens(token));
-        uint256 unadjustedAmount = lpAmount * PRECISION / rate;
+    // function _getTokenAmountFromLp(uint256 lpAmount, uint256 token) internal returns (uint256) {
+    //     uint256 rate = IRateProvider(pool.rateProviders(token)).rate(pool.tokens(token));
+    //     uint256 unadjustedAmount = lpAmount * PRECISION / rate;
 
-        return unadjustedAmount * PRECISION / (10 ** (36 - ERC20(pool.tokens(token)).decimals()));
-    }
+    //     return unadjustedAmount * PRECISION / (10 ** (36 - ERC20(pool.tokens(token)).decimals()));
+    // }
 }

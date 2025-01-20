@@ -1132,6 +1132,12 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard, VM {
     //     );
     // }
 
+    /// @notice remove a token from the pool
+    /// @dev can only be called when no ramp is currently active
+    /// @param tokenIndex_ index of the token to be removed in the pool
+    /// @param lpAmount_ lpAmount to be burnt to compensate for the removed token amount
+    /// @param amplification_ proposed new amplification
+    /// @param newWeights_ proposed new weights
     function removeToken(uint256 tokenIndex_, uint256 lpAmount_, uint256 amplification_, uint256[] calldata newWeights_)
         external
         onlyOwner
@@ -1143,11 +1149,10 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard, VM {
         if (amplification_ == 0) revert Pool__ZeroAmount();
         if (rampLastTime != 0) revert Pool__RampActive();
         if (tokenIndex_ >= numTokens) revert Pool__IndexOutOfBounds();
-        require(newWeights_.length == _numTokens - 1, "length of newWeights_ array must be equal to numTokens - 1");
+        require(newWeights_.length == _numTokens - 1, "Length of newWeights_ array must be equal to numTokens - 1");
 
         address removedAddress = tokens[tokenIndex_];
         (,, uint256 _packedWeight) = _unpackVirtualBalance(packedVirtualBalances[tokenIndex_]);
-        uint256 _removedWeight = FixedPointMathLib.rawMul(_packedWeight & WEIGHT_MASK, WEIGHT_SCALE);
 
         uint256 _newNumTokens = _numTokens - 1;
 
@@ -1165,7 +1170,7 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard, VM {
             _newRateMultipliers[newIndex] = rateMultipliers[t];
             _newRateProviders[newIndex] = rateProviders[t];
 
-            (uint256 _virtualBalance, uint256 _rate, uint256 _weight) = _unpackVirtualBalance(packedVirtualBalances[t]);
+            (uint256 _virtualBalance, uint256 _rate,) = _unpackVirtualBalance(packedVirtualBalances[t]);
             uint256 _newWeight = newWeights_[t];
             require(_newWeight > 0 && _newWeight <= PRECISION, "Proposed weight out of range");
             weightSum += _newWeight;
