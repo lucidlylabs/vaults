@@ -185,20 +185,13 @@ contract PoolRemoveToken is Test {
         }
 
         amounts[3] = 0;
-        console.log("lp token supply before adding liquidity:", poolToken.totalSupply());
         vm.startPrank(jake);
         uint256 lpAdded = pool.addLiquidity(amounts, 0, jake);
 
-        console.log("lp token balance:", lpAdded);
-        console.log("tokens[3] balance in pool", ERC20(pool.tokens(3)).balanceOf(address(pool)));
+        uint256 cachedToken3Balance = token3.balanceOf(jake);
 
-        console.log("before removing token -----");
-        console.log("pool balances");
-        for (uint256 i = 0; i < 4; i++) {
-            console.log(i, "=", ERC20(tokens[i]).balanceOf(address(pool)));
-        }
-        console.log("lp token supply:", poolToken.totalSupply());
-        console.log("pool supply:", pool.supply());
+        uint256 cachedPoolTokenSupply = poolToken.totalSupply();
+        uint256 cachePoolSupply = pool.supply();
 
         uint256[] memory newWeights = new uint256[](pool.numTokens() - 1);
         newWeights[0] = 20 * PRECISION / 100;
@@ -209,9 +202,8 @@ contract PoolRemoveToken is Test {
         uint256 ampl = pool.amplification();
         pool.removeToken(3, lpAdded, ampl, newWeights);
 
-        for (uint256 i = 0; i < 4; i++) {
-            console.log(i, "=", ERC20(tokens[i]).balanceOf(address(pool)));
-        }
+        uint256 poolTokenSupply = poolToken.totalSupply();
+        uint256 poolSupply = pool.supply();
 
         uint256 weightSum = 0;
         for (uint256 i = 0; i < pool.numTokens(); i++) {
@@ -219,19 +211,18 @@ contract PoolRemoveToken is Test {
             weightSum += weight;
         }
 
-        // assertEq(weightSum, PRECISION, "Weight sum mismatch");
+        uint256 lpBalanceAfterRemoving = poolToken.balanceOf(jake);
+        uint256 lpSpentByJake = lpAdded - lpBalanceAfterRemoving;
+        uint256 token3Balance = token3.balanceOf(jake);
 
-        uint256 weight0 = 222_222_222_222_222_222;
-        console.log("defined weight:", weight0);
-        console.log("packing weight.");
-        uint256 packed = (
-            (FixedPointMathLib.rawDiv(weight0, WEIGHT_SCALE))
-                | (FixedPointMathLib.rawDiv(weight0, WEIGHT_SCALE) << TARGET_WEIGHT_SHIFT)
-                | (FixedPointMathLib.rawDiv(PRECISION, WEIGHT_SCALE) << LOWER_BAND_SHIFT)
-                | (FixedPointMathLib.rawDiv(PRECISION, WEIGHT_SCALE) << UPPER_BAND_SHIFT)
-        );
-        uint256 unpackedWeight = FixedPointMathLib.rawMul(packed & WEIGHT_MASK, WEIGHT_SCALE);
-        console.log("unpacked weight:", unpackedWeight);
+        assert(token3Balance > cachedToken3Balance);
+        uint256 changeInToken3Balance = token3Balance = cachedToken3Balance;
+        uint256 token3WorthReceived = changeInToken3Balance * rp.rate(address(token3)) / PRECISION;
+
+        console.log("lp burned:", lpSpentByJake);
+        console.log("token value received:", token3WorthReceived);
+
+        assertEq(weightSum, PRECISION, "Weight sum mismatch");
 
         vm.stopPrank();
     }

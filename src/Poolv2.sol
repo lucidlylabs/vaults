@@ -1136,8 +1136,6 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard, VM {
         external
         onlyOwner
     {
-        console.log("inside removeToken function ------------------------------------");
-
         uint256 _numTokens = numTokens;
 
         if (_numTokens <= 2) revert Pool__MustBeInitiatedWithMoreThanOneToken();
@@ -1150,7 +1148,6 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard, VM {
         address removedAddress = tokens[tokenIndex_];
         (,, uint256 _packedWeight) = _unpackVirtualBalance(packedVirtualBalances[tokenIndex_]);
         uint256 _removedWeight = FixedPointMathLib.rawMul(_packedWeight & WEIGHT_MASK, WEIGHT_SCALE);
-        uint256 _remainingWeight = PRECISION - _removedWeight;
 
         uint256 _newNumTokens = _numTokens - 1;
 
@@ -1162,8 +1159,6 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard, VM {
 
         uint256 weightSum = 0;
         uint256 newIndex = 0;
-        uint256 lastIndex = _newNumTokens - 1;
-        console.log("_remainingWeight:");
         for (uint256 t = 0; t < _newNumTokens + 1; t++) {
             if (t == tokenIndex_) continue;
             _newTokens[newIndex] = tokens[t];
@@ -1171,18 +1166,8 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard, VM {
             _newRateProviders[newIndex] = rateProviders[t];
 
             (uint256 _virtualBalance, uint256 _rate, uint256 _weight) = _unpackVirtualBalance(packedVirtualBalances[t]);
-            uint256 _currentWeight = FixedPointMathLib.rawMul(_weight & WEIGHT_MASK, WEIGHT_SCALE);
-            // uint256 _newWeight = _currentWeight * PRECISION / _remainingWeight;
-
             uint256 _newWeight = newWeights_[t];
-
-            // if (newIndex == lastIndex && weightSum + _newWeight < PRECISION) {
-            //     _newWeight += PRECISION - (weightSum + _newWeight);
-            // }
-
-            console.log(t, ":", _currentWeight);
-            console.log(t, ":", _newWeight);
-
+            require(_newWeight > 0 && _newWeight <= PRECISION, "Proposed weight out of range");
             weightSum += _newWeight;
 
             _newPackedVirtualBalances[newIndex] =
@@ -1202,17 +1187,6 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard, VM {
             packedVirtualBalances[t] = _newPackedVirtualBalances[t];
         }
         numTokens--;
-
-        weightSum = 0;
-        for (uint256 t = 0; t < MAX_NUM_TOKENS; t++) {
-            if (t == _newNumTokens) break;
-            (,, uint256 _weight) = _unpackVirtualBalance(packedVirtualBalances[t]);
-            (uint256 _currentWeight,,,) = _unpackWeight(_weight);
-            console.log(t, ":", _currentWeight);
-            weightSum += _currentWeight;
-        }
-
-        console.log("weightSum:", weightSum);
 
         // Recalculate balances and update supply
         (uint256 vbProd, uint256 vbSum) = _calculateVirtualBalanceProdSum();
@@ -1240,7 +1214,6 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard, VM {
         SafeTransferLib.safeTransfer(removedAddress, msg.sender, balance);
 
         emit TokenRemoved(tokenIndex_, removedAddress);
-        console.log("inside removeToken function ------------------------------------");
     }
 
     /// @notice rescue tokens from this contract
