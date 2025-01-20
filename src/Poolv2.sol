@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import {console} from "../lib/forge-std/src/console.sol";
 import {OwnableRoles} from "../lib/solady/src/auth/OwnableRoles.sol";
 import {ERC20} from "../lib/solady/src/tokens/ERC20.sol";
 import {ReentrancyGuard} from "../lib/solady/src/utils/ReentrancyGuard.sol";
@@ -1132,8 +1133,8 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard, VM {
     // }
 
     function removeToken(uint256 tokenIndex_, uint256 lpAmount_, uint256 amplification_) external onlyOwner {
+        console.log("inside removeToken function ------------------------------------");
         if (numTokens <= 2) revert Pool__MustBeInitiatedWithMoreThanOneToken();
-        if (lpAmount_ == 0) revert Pool__ZeroAmount();
         if (paused) revert Pool__Paused();
         if (amplification_ == 0) revert Pool__ZeroAmount();
         if (rampLastTime != 0) revert Pool__RampActive();
@@ -1152,7 +1153,10 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard, VM {
         address[] memory _newRateProviders = new address[](_newNumTokens);
         uint256[] memory _newPackedVirtualBalances = new uint256[](_newNumTokens);
 
+        uint256 weightSum = 0;
         uint256 newIndex = 0;
+        uint256 lastIndex = _newNumTokens - 1;
+        console.log("_remainingWeight:");
         for (uint256 t = 0; t < _newNumTokens + 1; t++) {
             if (t == tokenIndex_) continue;
             _newTokens[newIndex] = tokens[t];
@@ -1161,11 +1165,23 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard, VM {
 
             (uint256 _virtualBalance, uint256 _rate, uint256 _weight) = _unpackVirtualBalance(packedVirtualBalances[t]);
             uint256 _currentWeight = FixedPointMathLib.rawMul(_weight & WEIGHT_MASK, WEIGHT_SCALE);
-            uint256 _newWeight = FixedPointMathLib.divWad(_currentWeight, _remainingWeight);
+            uint256 _newWeight = _currentWeight * PRECISION / _remainingWeight;
+
+            if (newIndex == lastIndex && weightSum + _newWeight < PRECISION) {
+                _newWeight += PRECISION - (weightSum + _newWeight);
+            }
+
+            console.log(t, ":", _currentWeight);
+            console.log(t, ":", _newWeight);
+
+            weightSum += _newWeight;
+
             _newPackedVirtualBalances[newIndex] =
                 _packVirtualBalance(_virtualBalance, _rate, _packWeight(_newWeight, _newWeight, PRECISION, PRECISION));
             newIndex++;
         }
+
+        require(weightSum == PRECISION, "Weight sum mismatch");
 
         // Update pool state
         for (uint256 t = 0; t < MAX_NUM_TOKENS; t++) {
@@ -1178,15 +1194,26 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard, VM {
         }
         numTokens--;
 
+        weightSum = 0;
+        for (uint256 t = 0; t < MAX_NUM_TOKENS; t++) {
+            if (t == _newNumTokens) break;
+            (,, uint256 _weight) = _unpackVirtualBalance(packedVirtualBalances[t]);
+            (uint256 _currentWeight,,,) = _unpackWeight(_weight);
+            console.log(t, ":", _currentWeight);
+            weightSum += _currentWeight;
+        }
+
+        console.log("weightSum:", weightSum);
+
         // Recalculate balances and update supply
         (uint256 vbProd, uint256 vbSum) = _calculateVirtualBalanceProdSum();
         uint256 prevSupply = supply;
         uint256 newSupply;
         (newSupply, vbProd) = _calculateSupply(numTokens, vbSum, amplification_, vbProd, vbSum, true);
-        if (newSupply >= prevSupply) revert Pool__InvalidParams();
 
         uint256 changeInSupply = prevSupply - newSupply;
-        if (lpAmount_ < changeInSupply) revert Pool__InvalidParams();
+        require(newSupply <= prevSupply, "newSupply > prevSupply");
+        require(lpAmount_ >= changeInSupply, "lpAmount < changeInSupply");
 
         // refund excess lpAmount_ if added
         uint256 _lpSurplus = lpAmount_ - changeInSupply;
@@ -1194,16 +1221,16 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard, VM {
             PoolToken(tokenAddress).mint(msg.sender, _lpSurplus);
         }
 
-        supply = newSupply;
         amplification = amplification_;
         packedPoolVirtualBalance = _packPoolVirtualBalance(vbProd, vbSum);
 
         // Burn LP tokens and transfer removed token
-        PoolToken(tokenAddress).burn(msg.sender, lpAmount_);
+        PoolToken(tokenAddress).mint(vaultAddress, changeInSupply);
         uint256 balance = ERC20(removedAddress).balanceOf(address(this));
         SafeTransferLib.safeTransfer(removedAddress, msg.sender, balance);
 
         emit TokenRemoved(tokenIndex_, removedAddress);
+        console.log("inside removeToken function ------------------------------------");
     }
 
     /// @notice rescue tokens from this contract
