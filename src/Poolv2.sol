@@ -1234,8 +1234,8 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard, VM {
         packedPoolVirtualBalance = _packPoolVirtualBalance(vbProd, vbSum);
 
         // Burn LP tokens and transfer removed token
-        PoolToken(tokenAddress).burn(msg.sender, lpAmount_);
-        PoolToken(tokenAddress).mint(vaultAddress, changeInSupply);
+        PoolToken(tokenAddress).burn(msg.sender, lpAmount_); //  burn the lp amount approved by the manager
+        PoolToken(tokenAddress).mint(vaultAddress, changeInSupply); // distribute change in supply amongst depositors
         uint256 balance = ERC20(removedAddress).balanceOf(address(this));
         SafeTransferLib.safeTransfer(removedAddress, msg.sender, balance);
 

@@ -209,15 +209,9 @@ contract PoolRemoveToken is Test {
         uint256 ampl = pool.amplification();
         pool.removeToken(3, lpAdded, ampl, newWeights);
 
-        console.log("after removing token -----");
-        console.log("pool balances");
         for (uint256 i = 0; i < 4; i++) {
             console.log(i, "=", ERC20(tokens[i]).balanceOf(address(pool)));
         }
-        console.log("lp token supply:", poolToken.totalSupply());
-        console.log("pool supply:", pool.supply());
-
-        console.log("numTokens now:", pool.numTokens());
 
         uint256 weightSum = 0;
         for (uint256 i = 0; i < pool.numTokens(); i++) {
