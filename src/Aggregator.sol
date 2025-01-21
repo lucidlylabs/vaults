@@ -6,7 +6,7 @@ import {LibSort} from "solady/utils/LibSort.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 
-import {Pool} from "../src/Pool.sol";
+import {PoolV2} from "../src/Poolv2.sol";
 import {PoolToken} from "../src/PoolToken.sol";
 import {Vault} from "../src/Vault.sol";
 import {MockToken} from "../src/Mocks/MockToken.sol";
@@ -36,6 +36,25 @@ contract Aggregator {
         shares = Vault(vaultAddress).deposit(lpReceived, receiver);
     }
 
+    function depositFromRouter(
+        address[] calldata tokens,
+        uint256[] calldata tokenAmounts,
+        address receiver,
+        uint256 minLpAmount,
+        address poolAddress
+    ) external returns (uint256 shares) {
+        require(tokens.length == tokenAmounts.length, "tokens and tokenAmounts should be of same length");
+
+        for (uint256 i = 0; i < tokenAmounts.length; i++) {
+            ERC20(tokens[i]).approve(poolAddress, tokenAmounts[i]);
+        }
+
+        address vaultAddress = Pool(poolAddress).vaultAddress();
+        uint256 lpReceived = Pool(poolAddress).addLiquidity(tokenAmounts, minLpAmount, address(this));
+        PoolToken(Pool(poolAddress).tokenAddress()).approve(vaultAddress, lpReceived);
+        shares = Vault(vaultAddress).deposit(lpReceived, receiver);
+    }
+
     function depositSingle(
         uint256 tokenIndex,
         uint256 tokenAmount,
@@ -45,6 +64,25 @@ contract Aggregator {
     ) external returns (uint256 shares) {
         address token = Pool(poolAddress).tokens(tokenIndex);
         SafeTransferLib.safeTransferFrom(token, msg.sender, address(this), tokenAmount);
+        ERC20(token).approve(poolAddress, tokenAmount);
+
+        uint256 numTokens = Pool(poolAddress).numTokens();
+        uint256[] memory addLiquidityAmounts = new uint256[](numTokens);
+        addLiquidityAmounts[tokenIndex] = tokenAmount;
+        address vaultAddress = Pool(poolAddress).vaultAddress();
+        uint256 lpReceived = Pool(poolAddress).addLiquidity(addLiquidityAmounts, minLpAmount, address(this));
+        PoolToken(Pool(poolAddress).tokenAddress()).approve(vaultAddress, lpReceived);
+        shares = Vault(vaultAddress).deposit(lpReceived, receiver);
+    }
+
+    function depositSingleFromRouter(
+        uint256 tokenIndex,
+        uint256 tokenAmount,
+        address receiver,
+        uint256 minLpAmount,
+        address poolAddress
+    ) external returns (uint256 shares) {
+        address token = Pool(poolAddress).tokens(tokenIndex);
         ERC20(token).approve(poolAddress, tokenAmount);
 
         uint256 numTokens = Pool(poolAddress).numTokens();
