@@ -101,6 +101,7 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard {
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                             AUTH                           */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
     uint256 constant ROLE_POOL_OWNER = 1 << 0; // 0x1
     uint256 constant ROLE_POOL_MANAGER = 1 << 1; // 0x2
     uint256 constant ROLE_POOL_MONITOR = 1 << 2; // 0x4
