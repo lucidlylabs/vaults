@@ -6,7 +6,7 @@ import {LibSort} from "solady/utils/LibSort.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 
-import {PoolV2} from "../src/Poolv2.sol";
+import {Pool} from "../src/Poolv2.sol";
 import {PoolToken} from "../src/PoolToken.sol";
 import {Vault} from "../src/Vault.sol";
 import {MockToken} from "../src/Mocks/MockToken.sol";
