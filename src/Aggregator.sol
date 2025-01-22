@@ -24,31 +24,16 @@ contract Aggregator {
         uint256 minLpAmount,
         address poolAddress
     ) external returns (uint256 shares) {
-        require(
-            tokens.length == tokenAmounts.length,
-            "tokens and tokenAmounts should be of same length"
-        );
+        require(tokens.length == tokenAmounts.length, "tokens and tokenAmounts should be of same length");
 
         for (uint256 i = 0; i < tokenAmounts.length; i++) {
-            SafeTransferLib.safeTransferFrom(
-                tokens[i],
-                msg.sender,
-                address(this),
-                tokenAmounts[i]
-            );
+            SafeTransferLib.safeTransferFrom(tokens[i], msg.sender, address(this), tokenAmounts[i]);
             ERC20(tokens[i]).approve(poolAddress, tokenAmounts[i]);
         }
 
         address vaultAddress = Pool(poolAddress).vaultAddress();
-        uint256 lpReceived = Pool(poolAddress).addLiquidity(
-            tokenAmounts,
-            minLpAmount,
-            address(this)
-        );
-        PoolToken(Pool(poolAddress).tokenAddress()).approve(
-            vaultAddress,
-            lpReceived
-        );
+        uint256 lpReceived = Pool(poolAddress).addLiquidity(tokenAmounts, minLpAmount, address(this));
+        PoolToken(Pool(poolAddress).tokenAddress()).approve(vaultAddress, lpReceived);
         shares = Vault(vaultAddress).deposit(lpReceived, receiver);
     }
 
@@ -59,25 +44,15 @@ contract Aggregator {
         uint256 minLpAmount,
         address poolAddress
     ) external returns (uint256 shares) {
-        require(
-            tokens.length == tokenAmounts.length,
-            "tokens and tokenAmounts should be of same length"
-        );
+        require(tokens.length == tokenAmounts.length, "tokens and tokenAmounts should be of same length");
 
         for (uint256 i = 0; i < tokenAmounts.length; i++) {
             ERC20(tokens[i]).approve(poolAddress, tokenAmounts[i]);
         }
 
         address vaultAddress = Pool(poolAddress).vaultAddress();
-        uint256 lpReceived = Pool(poolAddress).addLiquidity(
-            tokenAmounts,
-            minLpAmount,
-            address(this)
-        );
-        PoolToken(Pool(poolAddress).tokenAddress()).approve(
-            vaultAddress,
-            lpReceived
-        );
+        uint256 lpReceived = Pool(poolAddress).addLiquidity(tokenAmounts, minLpAmount, address(this));
+        PoolToken(Pool(poolAddress).tokenAddress()).approve(vaultAddress, lpReceived);
         shares = Vault(vaultAddress).deposit(lpReceived, receiver);
     }
 
@@ -89,62 +64,15 @@ contract Aggregator {
         address poolAddress
     ) external returns (uint256 shares) {
         address token = Pool(poolAddress).tokens(tokenIndex);
-        SafeTransferLib.safeTransferFrom(
-            token,
-            msg.sender,
-            address(this),
-            tokenAmount
-        );
+        SafeTransferLib.safeTransferFrom(token, msg.sender, address(this), tokenAmount);
         ERC20(token).approve(poolAddress, tokenAmount);
 
         uint256 numTokens = Pool(poolAddress).numTokens();
         uint256[] memory addLiquidityAmounts = new uint256[](numTokens);
         addLiquidityAmounts[tokenIndex] = tokenAmount;
         address vaultAddress = Pool(poolAddress).vaultAddress();
-        uint256 lpReceived = Pool(poolAddress).addLiquidity(
-            addLiquidityAmounts,
-            minLpAmount,
-            address(this)
-        );
-        PoolToken(Pool(poolAddress).tokenAddress()).approve(
-            vaultAddress,
-            lpReceived
-        );
-        shares = Vault(vaultAddress).deposit(lpReceived, receiver);
-    }
-
-    function executeZapAndDeposit(
-        uint256 tokenIndex,
-        address receiver,
-        uint256 minLpAmount,
-        address poolAddress,
-        address magPieRouter,
-        bytes calldata data
-    ) external returns (uint256 shares) {
-        address token = Pool(poolAddress).tokens(tokenIndex);
-
-        uint256 cachedBalance = ERC20(token).balanceOf(address(this));
-        // bytes[] memory dataArray = new bytes[](1);
-        // dataArray[0] = data;
-        // bytes memory result = IMagPie(magPieRouter).multicall(dataArray)[0];
-        (bool success, bytes memory result) = magPieRouter.call(data);
-        require(success, "router call failed");
-        uint256 tokenAmount = ERC20(token).balanceOf(address(this)) -
-            cachedBalance;
-        ERC20(token).approve(poolAddress, tokenAmount);
-        uint256 numTokens = Pool(poolAddress).numTokens();
-        uint256[] memory addLiquidityAmounts = new uint256[](numTokens);
-        addLiquidityAmounts[tokenIndex] = tokenAmount;
-        address vaultAddress = Pool(poolAddress).vaultAddress();
-        uint256 lpReceived = Pool(poolAddress).addLiquidity(
-            addLiquidityAmounts,
-            minLpAmount,
-            address(this)
-        );
-        PoolToken(Pool(poolAddress).tokenAddress()).approve(
-            vaultAddress,
-            lpReceived
-        );
+        uint256 lpReceived = Pool(poolAddress).addLiquidity(addLiquidityAmounts, minLpAmount, address(this));
+        PoolToken(Pool(poolAddress).tokenAddress()).approve(vaultAddress, lpReceived);
         shares = Vault(vaultAddress).deposit(lpReceived, receiver);
     }
 
@@ -162,15 +90,8 @@ contract Aggregator {
         uint256[] memory addLiquidityAmounts = new uint256[](numTokens);
         addLiquidityAmounts[tokenIndex] = tokenAmount;
         address vaultAddress = Pool(poolAddress).vaultAddress();
-        uint256 lpReceived = Pool(poolAddress).addLiquidity(
-            addLiquidityAmounts,
-            minLpAmount,
-            address(this)
-        );
-        PoolToken(Pool(poolAddress).tokenAddress()).approve(
-            vaultAddress,
-            lpReceived
-        );
+        uint256 lpReceived = Pool(poolAddress).addLiquidity(addLiquidityAmounts, minLpAmount, address(this));
+        PoolToken(Pool(poolAddress).tokenAddress()).approve(vaultAddress, lpReceived);
         shares = Vault(vaultAddress).deposit(lpReceived, receiver);
     }
 
@@ -181,21 +102,10 @@ contract Aggregator {
         uint256 minLpAmount,
         address poolAddress
     ) external returns (uint256 shares) {
-        require(
-            tokens.length == tokenAmounts.length,
-            "tokens and tokenAmounts should be of same length"
-        );
+        require(tokens.length == tokenAmounts.length, "tokens and tokenAmounts should be of same length");
         address vaultAddress = Pool(poolAddress).vaultAddress();
-        uint256 lpReceived = Pool(poolAddress).addLiquidityFor(
-            tokenAmounts,
-            minLpAmount,
-            msg.sender,
-            address(this)
-        );
-        PoolToken(Pool(poolAddress).tokenAddress()).approve(
-            vaultAddress,
-            lpReceived
-        );
+        uint256 lpReceived = Pool(poolAddress).addLiquidityFor(tokenAmounts, minLpAmount, msg.sender, address(this));
+        PoolToken(Pool(poolAddress).tokenAddress()).approve(vaultAddress, lpReceived);
         shares = Vault(vaultAddress).deposit(lpReceived, receiver);
     }
 
@@ -210,16 +120,9 @@ contract Aggregator {
         uint256 numTokens = Pool(poolAddress).numTokens();
         uint256[] memory addLiquidityAmounts = new uint256[](numTokens);
         addLiquidityAmounts[tokenIndex] = tokenAmount;
-        uint256 lpReceived = Pool(poolAddress).addLiquidityFor(
-            addLiquidityAmounts,
-            minLpAmount,
-            msg.sender,
-            address(this)
-        );
-        PoolToken(Pool(poolAddress).tokenAddress()).approve(
-            vaultAddress,
-            lpReceived
-        );
+        uint256 lpReceived =
+            Pool(poolAddress).addLiquidityFor(addLiquidityAmounts, minLpAmount, msg.sender, address(this));
+        PoolToken(Pool(poolAddress).tokenAddress()).approve(vaultAddress, lpReceived);
         shares = Vault(vaultAddress).deposit(lpReceived, receiver);
     }
 
@@ -230,11 +133,7 @@ contract Aggregator {
         address receiver
     ) external {
         Vault vault = Vault(Pool(poolAddress).vaultAddress());
-        uint256 lpRedeemed = vault.redeem(
-            sharesToBurn,
-            address(this),
-            msg.sender
-        );
+        uint256 lpRedeemed = vault.redeem(sharesToBurn, address(this), msg.sender);
         Pool(poolAddress).removeLiquidity(lpRedeemed, minAmountsOut, receiver);
     }
 
@@ -246,16 +145,41 @@ contract Aggregator {
         address receiver
     ) external returns (uint256 tokenOutAmount) {
         Vault vault = Vault(Pool(poolAddress).vaultAddress());
-        uint256 lpRedeemed = vault.redeem(
-            sharesToBurn,
-            address(this),
-            msg.sender
-        );
-        tokenOutAmount = Pool(poolAddress).removeLiquiditySingle(
-            tokenOut,
-            lpRedeemed,
-            minAmountOut,
-            receiver
-        );
+        uint256 lpRedeemed = vault.redeem(sharesToBurn, address(this), msg.sender);
+        tokenOutAmount = Pool(poolAddress).removeLiquiditySingle(tokenOut, lpRedeemed, minAmountOut, receiver);
+    }
+
+    function executeZapAndDeposit(
+        address zapTokenAddress,
+        uint256 zapTokenAmount,
+        uint256 tokenIndex,
+        address receiver,
+        uint256 minLpAmount,
+        address poolAddress,
+        address routerAddress,
+        bytes calldata data
+    ) external returns (uint256 shares) {
+        require(zapTokenAddress != address(0), "Invalid zapTokenAddress.");
+        require(zapTokenAmount != 0, "Cannot allow 0 amount to zap in.");
+
+        SafeTransferLib.safeTransferFrom(zapTokenAddress, msg.sender, address(this), zapTokenAmount);
+        SafeTransferLib.safeApprove(zapTokenAddress, routerAddress, zapTokenAmount);
+
+        address token = Pool(poolAddress).tokens(tokenIndex);
+        uint256 cachedBalance = ERC20(token).balanceOf(address(this));
+
+        (bool success, bytes memory result) = routerAddress.call(data);
+        require(success, "router call failed");
+
+        uint256 tokenAmount = ERC20(token).balanceOf(address(this)) - cachedBalance;
+
+        ERC20(token).approve(poolAddress, tokenAmount);
+        uint256 numTokens = Pool(poolAddress).numTokens();
+        uint256[] memory addLiquidityAmounts = new uint256[](numTokens);
+        addLiquidityAmounts[tokenIndex] = tokenAmount;
+        address vaultAddress = Pool(poolAddress).vaultAddress();
+        uint256 lpReceived = Pool(poolAddress).addLiquidity(addLiquidityAmounts, minLpAmount, address(this));
+        PoolToken(Pool(poolAddress).tokenAddress()).approve(vaultAddress, lpReceived);
+        shares = Vault(vaultAddress).deposit(lpReceived, receiver);
     }
 }
