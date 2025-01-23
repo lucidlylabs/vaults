@@ -2,11 +2,13 @@
 pragma solidity ^0.8.0;
 
 import {EnumerableSetLib} from "solady/src/utils/EnumerableSetLib.sol";
+import {IERC20} from "solady/src/tokens/ERC20.sol";
+import {Ownable} from "solady/src/auth/Ownable.sol";
 import {Vault} from "../Vault.sol";
 import {Pool} from "../Pool.sol";
 import {RateProvider} from "./RateProvider.sol";
 
-contract RateProviderRepository {
+contract RateProviderRepository is Ownable {
     Vault public vault;
     Pool public pool;
     EnumerableSetLib.AddressSet private tokenAddresses;
@@ -26,19 +28,21 @@ contract RateProviderRepository {
         return tokenAddresses.contains(token_);
     }
 
-    function addToken(address token_) external {
+    function addToken(address token_, address rateProvider_) external onlyOwner {
         tokenAddresses.add(token_);
+        rateProviders[token_] = rateProvider_;
     }
 
-    function removeToken(address token_) external {
+    function removeToken(address token_) external onlyOwner {
         tokenAddresses.remove(token_);
+        rateProviders[token_] = address(0);
     }
 
     function getRateProvider(address token_) external view returns (address) {
         return rateProviders[token_];
     }
 
-    function setRateProvider(address token_, address rateProvider_) external {
+    function setRateProvider(address token_, address rateProvider_) external onlyOwner {
         if (!tokenAddresses.contains(token_)) revert TokenNotSupported();
         
         rateProviders[token_] = rateProvider_;
