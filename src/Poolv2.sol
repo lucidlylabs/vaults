@@ -7,7 +7,6 @@ import {ERC20} from "../lib/solady/src/tokens/ERC20.sol";
 import {ReentrancyGuard} from "../lib/solady/src/utils/ReentrancyGuard.sol";
 import {FixedPointMathLib} from "../lib/solady/src/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "../lib/solady/src/utils/SafeTransferLib.sol";
-import {VM} from "../lib/enso-weiroll/contracts/VM.sol";
 
 import {IRateProvider} from "./RateProvider/IRateProvider.sol";
 import {LogExpMath} from "./BalancerLibCode/LogExpMath.sol";
@@ -16,7 +15,7 @@ import {PoolToken} from "./PoolToken.sol";
 import {console} from "../lib/forge-std/src/console.sol";
 import {ICurvePool} from "./interfaces/ICurvePool.sol";
 
-contract PoolV2 is OwnableRoles, ReentrancyGuard, VM {
+contract PoolV2 is OwnableRoles, ReentrancyGuard {
     uint256 constant PRECISION = 1_000_000_000_000_000_000;
     uint256 constant MAX_NUM_TOKENS = 32;
     uint256 constant ALL_TOKENS_FLAG =
