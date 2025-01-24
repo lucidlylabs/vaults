@@ -5,6 +5,7 @@ import {console} from "../lib/forge-std/src/console.sol";
 import {Test} from "../lib/forge-std/src/Test.sol";
 
 import {ERC20} from "../lib/solady/src/tokens/ERC20.sol";
+import {ERC4626} from "../lib/solady/src/tokens/ERC4626.sol";
 import {SafeTransferLib} from "../lib/solady/src/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "../lib/solady/src/utils/FixedPointMathLib.sol";
 
@@ -23,33 +24,163 @@ import {LogExpMath} from "../src/BalancerLibCode/LogExpMath.sol";
 contract PoolAdd is Test {
     Pool pool;
     PoolToken poolToken;
-    Vault staking;
+    Vault vault;
     IRateProvider rp;
 
     uint256 public constant PRECISION = 1e18;
     uint256 public constant MAX_NUM_TOKENS = 32;
     uint256 public amplification;
 
-    uint256 private decimals = 8;
+    uint256 private decimals = 18;
     address public poolOwner;
 
-    address private SWBTCWBTC_CURVE = 0x73e4BeC1A111869F395cBB24F6676826BF86d905;
-    address private SWBTC = 0x8DB2350D78aBc13f5673A411D4700BCF87864dDE;
-    address private GAUNTLET_WBTC_CORE = 0x443df5eEE3196e9b2Dd77CaBd3eA76C3dee8f9b2;
+    address private ADMIN_ADDRESS = 0x49b3cF9E95566FC769eA22Bc7633906878794c86;
+    // 0x1b514df3413DA9931eB31f2Ab72e32c0A507Cad5;
+    address private constant SUSDE = 0x9D39A5DE30e57443BfF2A8307A4256c8797A3497;
+    address private constant SDAISUSDE_CURVE = 0x167478921b907422F8E88B43C4Af2B8BEa278d3A;
+    address private constant YPTSUSDE = 0x57fC2D9809F777Cd5c8C433442264B6E8bE7Fce4;
+    address private constant GAUNTLET_USDC_PRIME = 0xdd0f28e19C1780eb6396170735D45153D261490d;
 
-    MockToken public token0 = MockToken(SWBTCWBTC_CURVE);
-    MockToken public token1 = MockToken(SWBTC);
-    MockToken public token2 = MockToken(GAUNTLET_WBTC_CORE);
+    address private constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
+    address private constant USDE = 0x4c9EDD5852cd905f086C759E8383e09bff1E68B3;
+    address private constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    address private constant SDAI = 0x83F20F44975D03b1b09e64809B757c47f942BEeA;
 
-    address[] public tokens = new address[](3);
-    uint256[] public weights = new uint256[](3);
-    address[] rateProviders = new address[](3);
+    MockToken public token0 = MockToken(SUSDE);
+    MockToken public token1 = MockToken(SDAISUSDE_CURVE);
+    MockToken public token2 = MockToken(YPTSUSDE);
+    MockToken public token3 = MockToken(GAUNTLET_USDC_PRIME);
 
-    uint256[] public seedAmounts = new uint256[](3);
+    address[] public tokens = new address[](4);
+    uint256[] public weights = new uint256[](4);
+    address[] rateProviders = new address[](4);
 
-    address jake = makeAddr("jake"); // pool and staking owner
+    uint256[] public seedAmounts = new uint256[](4);
+
     address alice = makeAddr("alice"); // first LP
     address bob = makeAddr("bob"); // second LP
+
+    // function setUp() public {
+    //     vm.createSelectFork(vm.rpcUrl("http://127.0.0.1:8545"));
+    //     poolToken = PoolToken(0x37da1F0AADe11970F6c9B770a05D65D880ba36d3);
+    //     pool = Pool(0xec970a39fc83A492103Ed707a290e050E2DA375c);
+    //     vault = Vault(0xEf1BCC329081f04059b766F04C4A617AdF462934);
+    //     rp = IRateProvider(0x2F6ac41126575B74eD71e7d0F299b9dEDd9D2287);
+    // }
+
+    // function test__seedPoolAndSetUpVault() public {
+    //     deal(DAI, ADMIN_ADDRESS, 50_000_000e18);
+    //     deal(USDE, ADMIN_ADDRESS, 50_000_000e18);
+    //     deal(USDC, ADMIN_ADDRESS, 50_000_000e6);
+
+    //     seedAmounts = _calculateSeedAmounts(50_000e18);
+
+    //     vm.startPrank(ADMIN_ADDRESS);
+    //     uint256 poolTokensMinted = pool.addLiquidity(seedAmounts1, 49_000e18, ADMIN_ADDRESS);
+    //     poolToken.approve(address(vault), type(uint256).max);
+    //     uint256 vaultSharesMinted = vault.deposit(poolTokensMinted, ADMIN_ADDRESS);
+    //     vm.stopPrank();
+    // }
+
+    // function _mintMorphoShares(uint256 mintAmounts) internal returns (uint256) {
+    //     vm.startPrank(ADMIN_ADDRESS);
+
+    //     // approve Morpho Vault to spend USDC
+    //     (bool success, bytes memory data) = USDC.call(
+    //         abi.encodeWithSelector(
+    //             bytes4(keccak256("approve(address,uint256)")), GAUNTLET_USDC_PRIME, type(uint256).max
+    //         )
+    //     );
+    //     require(success, "could not approve Morpho Vault contract to spend USDC.");
+    //     uint256 usdcDeposited = ERC4626(GAUNTLET_USDC_PRIME).mint(mintAmounts, ADMIN_ADDRESS);
+    //     console.log("usdcDeposited:", usdcDeposited);
+    //     vm.stopPrank();
+    // }
+
+    // function _mintYptsusde(uint256 mintAmount) internal returns (uint256 sharesMinted) {
+    //     vm.startPrank(ADMIN_ADDRESS);
+
+    //     // approve sUSDe to spend USDe
+    //     (bool success, bytes memory data) =
+    //         USDE.call(abi.encodeWithSelector(bytes4(keccak256("approve(address,uint256)")), SUSDE, type(uint256).max));
+    //     require(success, "could not approve sUSDe contract to spend USDe.");
+
+    //     uint256 susdeAmount = ERC4626(YPTSUSDE).previewMint(mintAmount);
+    //     uint256 usdeAmount = ERC4626(SUSDE).previewMint(susdeAmount);
+
+    //     // deposit USDE into SUSDE
+    //     (success, data) =
+    //         SUSDE.call(abi.encodeWithSelector(bytes4(keccak256("deposit(uint256,address)")), usdeAmount, ADMIN_ADDRESS));
+    //     require(success, "could not deposit USDe into sUSDe contract.");
+    //     uint256 susdeBalance = abi.decode(data, (uint256));
+    //     (success, data) = SUSDE.call(
+    //         abi.encodeWithSelector(bytes4(keccak256("approve(address,uint256)")), YPTSUSDE, type(uint256).max)
+    //     );
+    //     uint256 susdeDeposited = ERC4626(YPTSUSDE).mint(mintAmount, ADMIN_ADDRESS);
+    //     console.log("susde deposited:", susdeDeposited);
+    //     vm.stopPrank();
+    // }
+
+    // function _addLiquidityToCurve(uint256 usdeAmount) internal returns (uint256 lpMinted) {
+    //     vm.startPrank(ADMIN_ADDRESS);
+
+    //     (bool success, bytes memory data) =
+    //         USDE.call(abi.encodeWithSelector(bytes4(keccak256("approve(address,uint256)")), SUSDE, type(uint256).max));
+    //     require(success, "could not approve sUSDe contract to spend USDe.");
+
+    //     // deposit USDE into SUSDE
+    //     (success, data) =
+    //         SUSDE.call(abi.encodeWithSelector(bytes4(keccak256("deposit(uint256,address)")), usdeAmount, ADMIN_ADDRESS));
+    //     require(success, "could not deposit USDe into sUSDe contract.");
+    //     uint256 susdeBalance = abi.decode(data, (uint256));
+    //     uint256[] memory lpAmount = new uint256[](2);
+    //     lpAmount[1] = susdeBalance;
+    //     (success, data) = SUSDE.call(
+    //         abi.encodeWithSelector(bytes4(keccak256("approve(address,uint256)")), SDAISUSDE_CURVE, type(uint256).max)
+    //     );
+    //     require(success, "could not approve SDAISUSDE_CURVE contract to spend sUSDe.");
+
+    //     // add liquidity to curve pool
+    //     (success, data) = SDAISUSDE_CURVE.call(
+    //         abi.encodeWithSelector(
+    //             bytes4(keccak256("add_liquidity(uint256[],uint256,address)")), lpAmount, 0, ADMIN_ADDRESS
+    //         )
+    //     );
+
+    //     console.log("susde added:", susdeBalance);
+
+    //     lpMinted = abi.decode(data, (uint256));
+    //     vm.stopPrank();
+    // }
+
+    // function _mintSusde(uint256 mintAmount) internal {
+    //     vm.startPrank(ADMIN_ADDRESS);
+    //     require(ERC20(USDE).approve(SUSDE, type(uint256).max));
+    //     uint256 usdeDeposited = ERC4626(SUSDE).mint(mintAmount, ADMIN_ADDRESS);
+    //     console.log("USDE deposited:", usdeDeposited);
+    //     vm.stopPrank();
+    // }
+
+    // /// @param totalAmount total amount of lp tokens to be minted by seeding the pool
+    // function _calculateSeedAmounts(uint256 totalAmount) internal returns (uint256[] memory) {
+    //     uint256 n = pool.numTokens();
+    //     uint256[] memory amounts = new uint256[](n);
+    //     for (uint256 i = 0; i < n; i++) {
+    //         address token = pool.tokens(i);
+    //         address rateProvider = pool.rateProviders(i);
+    //         (uint256 weight,,,) = pool.weight(i);
+
+    //         // vm.startPrank(ADMIN_ADDRESS);
+    //         // require(ERC20(token).approve(address(pool), type(uint256).max), "could not approve");
+    //         // vm.stopPrank();
+    //         uint256 unadjustedRate = IRateProvider(rateProvider).rate(token);
+    //         // amount = (total * weight) / rate
+    //         amounts[i] = FixedPointMathLib.divUp(
+    //             FixedPointMathLib.mulDiv(totalAmount, weight, unadjustedRate), (10 ** (18 - ERC20(token).decimals()))
+    //         );
+    //     }
+    //     return amounts;
+    // }
 
     // function setUp() public {
     //     vm.createSelectFork(vm.rpcUrl("http://127.0.0.1:8545"));

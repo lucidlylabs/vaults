@@ -134,9 +134,14 @@ contract AggregatorTest is Test {
             vm.stopPrank();
 
             uint256 unadjustedRate = IRateProvider(rateProvider).rate(token); // price of the asset scaled to 18 precision
-            uint256 amount =
-                (total * weights[i] * 1e18 * 1e10) / (unadjustedRate * (10 ** (36 - ERC20(token).decimals())));
-            amounts[i] = amount;
+
+            // uint256 amount =
+            //     (total * weights[i] * 1e18 * 1e10) / (unadjustedRate * (10 ** (36 - ERC20(token).decimals())));
+            // amounts[i] = amount;
+
+            amounts[i] = FixedPointMathLib.divUp(
+                FixedPointMathLib.mulDiv(total, weights[i], unadjustedRate), (10 ** (18 - ERC20(token).decimals()))
+            );
         }
         return amounts;
     }
@@ -146,7 +151,7 @@ contract AggregatorTest is Test {
         uint256 numTokens = pool.numTokens();
 
         uint256[] memory amounts1 = new uint256[](numTokens);
-        uint256 total1 = 100 * 1e8;
+        uint256 total1 = 100 * 1e18;
 
         amounts1 = _calculateSeedAmounts(total1);
 
@@ -163,7 +168,7 @@ contract AggregatorTest is Test {
     function test__deposit() public {
         uint256 numTokens = pool.numTokens();
         uint256[] memory amounts = new uint256[](numTokens);
-        uint256 total1 = 100 * 1e8;
+        uint256 total1 = 100 * 1e18;
         amounts = _calculateSeedAmounts(total1);
 
         // approve agg as spender
@@ -183,11 +188,89 @@ contract AggregatorTest is Test {
         assert(shares == (vault.balanceOf(alice) - sharesOfAlice));
     }
 
+    function test__depositSingle() public {
+        uint256 numTokens = pool.numTokens();
+        uint256[] memory amounts = new uint256[](numTokens);
+        uint256[] memory amountsEstimated = new uint256[](numTokens);
+        uint256 total1 = 100 * 1e18;
+        amounts = _calculateSeedAmounts(total1);
+        amountsEstimated[0] = amounts[0];
+        amounts[1] = 0;
+        amounts[2] = 0;
+        amountsEstimated[1] = 0;
+        amountsEstimated[2] = 0;
+
+        uint256 ss = vm.snapshotState();
+
+        vm.startPrank(alice);
+        uint256 lpTokens = pool.addLiquidity(amountsEstimated, 0, alice);
+        poolToken.approve(address(vault), lpTokens);
+        uint256 sharesEstimated = vault.deposit(lpTokens, alice);
+        vm.stopPrank();
+
+        vm.revertToState(ss);
+
+        vm.startPrank(alice);
+        require(ERC20(pool.tokens(0)).approve(address(agg), type(uint256).max), "could not approve");
+        vm.stopPrank();
+
+        uint256 sharesOfAlice = vault.balanceOf(alice);
+
+        vm.startPrank(alice);
+        uint256 shares = agg.depositSingle(0, amounts[0], alice, 0, address(pool));
+        vm.stopPrank();
+
+        assert(shares == (vault.balanceOf(alice) - sharesOfAlice));
+        assert(sharesEstimated == shares);
+    }
+
     function test__depositFor() public {
         uint256 numTokens = pool.numTokens();
         uint256[] memory amounts = new uint256[](numTokens);
-        uint256 total1 = 100 * 1e8;
+        uint256 total1 = 100 * 1e18;
         amounts = _calculateSeedAmounts(total1);
+
+        // approve agg as spender
+        for (uint256 i = 0; i < numTokens; i++) {
+            address token = tokens[i];
+            vm.startPrank(alice);
+            require(ERC20(token).approve(address(agg), type(uint256).max), "could not approve");
+            vm.stopPrank();
+        }
+
+        vm.startPrank(alice);
+        require(ERC20(pool.tokens(0)).approve(address(agg), type(uint256).max), "could not approve");
+        vm.stopPrank();
+        uint256 sharesOfAlice = vault.balanceOf(alice);
+
+        vm.startPrank(alice);
+        uint256 shares = agg.depositFor(tokens, amounts, alice, 0, address(pool));
+        vm.stopPrank();
+
+        assert(shares == (vault.balanceOf(alice) - sharesOfAlice));
+    }
+
+    function test__depositForSingle() public {
+        uint256 numTokens = pool.numTokens();
+        uint256[] memory amounts = new uint256[](numTokens);
+        uint256[] memory amountsEstimated = new uint256[](numTokens);
+        uint256 total1 = 100 * 1e18;
+        amounts = _calculateSeedAmounts(total1);
+        amountsEstimated[0] = amounts[0];
+        amounts[1] = 0;
+        amounts[2] = 0;
+        amountsEstimated[1] = 0;
+        amountsEstimated[2] = 0;
+
+        uint256 ss = vm.snapshotState();
+
+        vm.startPrank(alice);
+        uint256 lpTokens = pool.addLiquidityFor(amountsEstimated, 0, alice, alice);
+        poolToken.approve(address(vault), lpTokens);
+        uint256 sharesEstimated = vault.deposit(lpTokens, alice);
+        vm.stopPrank();
+
+        vm.revertToState(ss);
 
         // approve agg as spender
         for (uint256 i = 0; i < numTokens; i++) {
@@ -200,10 +283,11 @@ contract AggregatorTest is Test {
         uint256 sharesOfAlice = vault.balanceOf(alice);
 
         vm.startPrank(alice);
-        uint256 shares = agg.depositFor(tokens, amounts, alice, 0, address(pool));
+        uint256 shares = agg.depositForSingle(0, amounts[0], alice, 0, address(pool));
         vm.stopPrank();
 
         assert(shares == (vault.balanceOf(alice) - sharesOfAlice));
+        assert(sharesEstimated == shares);
     }
 
     function test__redeemBalanced() public {

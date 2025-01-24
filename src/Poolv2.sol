@@ -482,6 +482,7 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard {
     /// @notice deposit tokens into the pool
     /// @param amounts_ array of the amount for each token to take from caller
     /// @param minLpAmount_ minimum amount of lp tokens to mint
+    /// @param owner_ address from which to add liquidity from
     /// @param receiver_ account to receive the lp tokens
     /// @return amount of LP tokens minted
     function addLiquidityFor(uint256[] calldata amounts_, uint256 minLpAmount_, address owner_, address receiver_)
