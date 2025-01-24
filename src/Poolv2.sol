@@ -1159,8 +1159,6 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard, VM {
         rampStopTime = block.timestamp + duration_;
 
         address removedAddress = tokens[tokenIndex_];
-        (,, uint256 _packedWeight) = _unpackVirtualBalance(packedVirtualBalances[tokenIndex_]);
-
         uint256 _newNumTokens = _numTokens - 1;
 
         // Reconfigure tokens and weights
