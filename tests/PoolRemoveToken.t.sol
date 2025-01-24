@@ -201,7 +201,7 @@ contract PoolRemoveToken is Test {
 
         poolToken.approve(address(pool), type(uint256).max);
         uint256 ampl = pool.amplification();
-        pool.removeToken(3, lpAdded, ampl, newWeights);
+        pool.removeToken(3, lpAdded, ampl, newWeights, 7 days);
 
         uint256 poolTokenSupply = poolToken.totalSupply();
         uint256 poolSupply = pool.supply();
