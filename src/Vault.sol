@@ -156,13 +156,13 @@ contract Vault is ERC4626Fees, Ownable {
     }
 
     function setProtocolFeeAddress(address address_) public onlyOwner {
-        if (address_ == address(0)) revert Staking__ProtocolFeeAddressCannotBeZero();
+        if (address_ == address(0)) revert Vault__ProtocolFeeAddressCannotBeZero();
         protocolFeeAddress = address_;
         emit SetProtocolFeeAddress(address_);
     }
 
     function setDepositFeeInBps(uint256 fee_) public onlyOwner {
-        if (fee_ > 500) revert Staking__ProtocolFeeCannotExceed500Bps();
+        if (fee_ > 500) revert Vault__ProtocolFeeCannotExceed500Bps();
         depositFeeInBps = fee_;
         emit SetDepositFee(fee_);
     }
