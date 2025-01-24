@@ -12,8 +12,10 @@ contract Vault is ERC4626Fees, Ownable {
     /*                           ERRORS                           */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    error Staking__ProtocolFeeAddressCannotBeZero();
-    error Staking__ProtocolFeeCannotExceed500Bps();
+    error Vault__ProtocolFeeAddressCannotBeZero();
+    error Vault__ProtocolFeeCannotExceed500Bps();
+    error Vault__PerformanceFeeCannotExceed500bps();
+    error Vault__RecipientCannotBeZeroAddress();
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                           EVENTS                           */
@@ -142,13 +144,13 @@ contract Vault is ERC4626Fees, Ownable {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     function setPerformanceFeeInBps(uint256 fee_) public onlyOwner {
-        require(fee_ <= 500, "Performance fee exceeds 5%");
+        if (fee_ > 500) revert Vault__PerformanceFeeCannotExceed500bps();
         performanceFeeInBps = fee_;
         emit SetPerformanceFee(fee_);
     }
 
     function setPerformanceFeeRecipient(address recipient_) public onlyOwner {
-        require(recipient_ != address(0), "Recipient cannot be zero address");
+        if (recipient_ == address(0)) revert Vault__RecipientCannotBeZeroAddress();
         performanceFeeRecipient = recipient_;
         emit SetPerformanceFeeRecipient(recipient_);
     }
