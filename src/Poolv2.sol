@@ -977,161 +977,6 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard, VM {
         emit AddToken(_prevNumTokens, token_, rateProvider_, _rate, weight_, amount_);
     }
 
-    // /// @notice Remove a token from the pool
-    // /// @dev Rebalances the weights of remaining tokens
-    // /// @param tokenIndex_ Index of the token to remove
-    // function removeToken(uint256 tokenIndex_, bytes32[] calldata commands, bytes[] memory state) external onlyOwner {
-    //     if (paused) revert Pool__Paused();
-    //     if (tokenIndex_ >= numTokens) revert Pool__IndexOutOfBounds();
-    //     if (numTokens <= 2) revert Pool__MustBeInitiatedWithMoreThanOneToken();
-    //     // Fetch token details
-    //     address token = tokens[tokenIndex_];
-    //     (,, uint256 _packedWeight) = _unpackVirtualBalance(packedVirtualBalances[tokenIndex_]);
-    //     // Update numTokens and remove from arrays
-    //     uint256 lastIndex = numTokens - 1;
-    //     tokens[tokenIndex_] = tokens[lastIndex];
-    //     rateProviders[tokenIndex_] = rateProviders[lastIndex];
-    //     packedVirtualBalances[tokenIndex_] = packedVirtualBalances[lastIndex];
-    //     rateMultipliers[tokenIndex_] = rateMultipliers[lastIndex];
-    //     numTokens = lastIndex;
-    //     // Redistribute weights
-    //     (uint256 removedWeight,,,) = _unpackWeight(_packedWeight);
-    //     uint256 remainingWeight = PRECISION - removedWeight;
-    //     uint256 sumWeight;
-
-    //     for (uint256 i = 0; i < numTokens; i++) {
-    //         (uint256 vb, uint256 r, uint256 w) = _unpackVirtualBalance(packedVirtualBalances[i]);
-    //         uint256 newWeight;
-    //         if (i == (numTokens - 1)) {
-    //             newWeight = PRECISION - sumWeight;
-    //             packedVirtualBalances[i] =
-    //                 _packVirtualBalance(vb, r, _packWeight(newWeight, newWeight, PRECISION, PRECISION));
-    //             break;
-    //         }
-    //         (uint256 currentWeight,,,) = _unpackWeight(w);
-    //         newWeight = currentWeight * PRECISION / remainingWeight;
-    //         packedVirtualBalances[i] =
-    //             _packVirtualBalance(vb, r, _packWeight(newWeight, newWeight, PRECISION, PRECISION));
-    //         sumWeight += newWeight;
-    //     }
-    //     // at this stage - there are 3 tokens in the pool according to the pool storage.
-
-    //     // remove token and add liquidity using weiroll's VM
-    //     _execute(commands, state);
-
-    //     // // If token is sUSDe, handle Curve pool interaction
-    //     // if (token == SUSDE) {
-    //     //     uint256 balance = ERC20(SUSDE).balanceOf(address(this)); // aim to remove this token and make it's balance 0.
-
-    //     //     // Approve Curve pool to spend sUSDe
-    //     //     // msg.sender = address(this)
-    //     //     SafeTransferLib.safeApprove(SUSDE, CURVE_SUSDE_SDAI_POOL, balance);
-
-    //     //     // remove susde from the Pool. D (supply) should decrease.
-    //     //     // use that susde to lp into curve and get sdaisusde lp token
-    //     //     // deposit that lp token in the Pool. D should increase
-    //     //     // balance out the total PoolToken supply in the transaction
-
-    //     //     // Add liquidity to Curve pool - [sDAI, sUSDe]
-    //     //     uint256[] memory amounts = new uint256[](2);
-    //     //     amounts[1] = balance; // sUSDe amount
-    //     //     (bool success, bytes memory data) = CURVE_SUSDE_SDAI_POOL.call(
-    //     //         abi.encodeWithSelector(bytes4(keccak256("add_liquidity(uint256[],uint256)")), amounts, 0)
-    //     //     );
-    //     //     require(success, "could not add liquidity to curve");
-    //     //     uint256 lpMinted = abi.decode(data, (uint256));
-    //     //     // ICurvePool(CURVE_SUSDE_SDAI_POOL).add_liquidity(amounts, 0); // min_mint_amount = 0
-    //     // }
-
-    //     // Recalculate virtual balance product and sum
-    //     (uint256 vbProd, uint256 vbSum) = _calculateVirtualBalanceProdSum();
-    //     packedPoolVirtualBalance = _packPoolVirtualBalance(vbProd, vbSum);
-    //     emit TokenRemoved(tokenIndex_, token);
-    // }
-
-    // function removeToken(uint256 tokenIndex_, uint256 lpAmount_, uint256 amplification_) external onlyOwner {
-    //     // step1: add certain lpAmount_
-    //     // step2: remove equivalent amount of tokenIndex_
-    //     // step3: reconfigure the pool
-    //     if (numTokens <= 2) revert Pool__MustBeInitiatedWithMoreThanOneToken();
-    //     uint256 _prevNumTokens = numTokens;
-    //     if (lpAmount_ == 0) revert Pool__ZeroAmount();
-    //     if (paused) revert Pool__Paused();
-    //     if (amplification_ == 0) revert Pool__ZeroAmount();
-    //     if (rampLastTime != 0) revert Pool__RampActive();
-    //     if (tokenIndex_ >= numTokens) revert Pool__IndexOutOfBounds();
-
-    //     // update weights for existing tokens
-    //     uint256 _newNumTokens = _prevNumTokens - 1;
-    //     uint256 _virtualBalance;
-    //     uint256 _rate;
-    //     uint256 _prevWeight;
-    //     uint256 _target;
-    //     uint256 _lower;
-    //     uint256 _upper;
-
-    //     address removedAddress = tokens[tokenIndex_];
-    //     (,, uint256 _packedWeight) = _unpackVirtualBalance(packedVirtualBalances[tokenIndex_]);
-    //     (uint256 _removedWeight,,,) = _unpackWeight(_packedWeight);
-    //     uint256 _remainingWeight = PRECISION - _removedWeight;
-
-    //     address[] memory _newTokens = new address[](_newNumTokens);
-    //     uint256[] memory _newRateMultipliers = new uint256[](_newNumTokens);
-    //     address[] memory _newRateProviders = new address[](_newNumTokens);
-    //     uint256[] memory _newPackedVirtualBalances = new uint256[](_newNumTokens);
-
-    //     // reconfigure pool
-    //     for (uint256 t = 0; t < MAX_NUM_TOKENS; t++) {
-    //         if (t == _prevNumTokens) break;
-    //         if (t == tokenIndex_) {
-    //             _newTokens[t] = tokens[_prevNumTokens - 1];
-    //             _newRateMultipliers[t] = rateMultipliers[_prevNumTokens - 1];
-    //             _newRateProviders[t] = rateProviders[_prevNumTokens - 1];
-
-    //             (uint256 _virtualBalance, uint256 _rate, uint256 _weight) =
-    //                 _unpackVirtualBalance(packedVirtualBalances[_prevNumTokens - 1]);
-    //             (uint256 _currentWeight,,,) = _unpackWeight(_weight);
-    //             uint256 _newWeight = FixedPointMathLib.divWad(_currentWeight, _remainingWeight);
-    //             // uint256 _newPackedWeight = _packWeight
-    //             _newPackedVirtualBalances[t] = _packVirtualBalance(
-    //                 _virtualBalance, _rate, _packWeight(_newWeight, _newWeight, PRECISION, PRECISION)
-    //             );
-    //         } else {
-    //             _newTokens[t] = tokens[_prevNumTokens];
-    //             _newRateMultipliers[t] = rateMultipliers[_prevNumTokens];
-    //             _newRateProviders[t] = rateProviders[_prevNumTokens];
-
-    //             (uint256 _virtualBalance, uint256 _rate, uint256 _weight) =
-    //                 _unpackVirtualBalance(packedVirtualBalances[_prevNumTokens]);
-    //             (uint256 _currentWeight,,,) = _unpackWeight(_weight);
-    //             uint256 _newWeight = FixedPointMathLib.divWad(_currentWeight, _remainingWeight);
-    //             _newPackedVirtualBalances[t] = _packVirtualBalance(
-    //                 _virtualBalance, _rate, _packWeight(_newWeight, _newWeight, PRECISION, PRECISION)
-    //             );
-    //         }
-    //     }
-
-    //     // recalculate variables
-    //     (uint256 _virtualBalanceProd, uint256 _virtualBalanceSum) = _calculateVirtualBalanceProdSum();
-
-    //     // update supply
-    //     uint256 _prevSupply = supply;
-    //     uint256 __supply;
-    //     (__supply, _virtualBalanceProd) = _calculateSupply(
-    //         _newNumTokens, _virtualBalanceSum, amplification_, _virtualBalanceProd, _virtualBalanceSum, true
-    //     );
-
-    //     amplification = amplification_;
-    //     supply = __supply;
-    //     packedPoolVirtualBalance = _packPoolVirtualBalance(_virtualBalanceProd, _virtualBalanceSum);
-    //     if (__supply >= _prevSupply) revert Pool__InvalidParams();
-    //     if (lpAmount_ < _prevSupply - __supply) revert Pool__InvalidParams();
-    //     PoolToken(tokenAddress).burn(msg.sender, lpAmount_);
-    //     SafeTransferLib.safeTransferFrom(
-    //         removedAddress, address(this), msg.sender, ERC20(removedAddress).balanceOf(this)
-    //     );
-    // }
-
     /// @notice remove a token from the pool
     /// @dev can only be called when no ramp is currently active
     /// @param tokenIndex_ index of the token to be removed in the pool
@@ -1169,7 +1014,7 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard, VM {
 
         uint256 weightSum = 0;
         uint256 newIndex = 0;
-        for (uint256 t = 0; t < _newNumTokens + 1; t++) {
+        for (uint256 t = 0; t < _newNumTokens; t++) {
             if (t == tokenIndex_) continue;
             _newTokens[newIndex] = tokens[t];
             _newRateMultipliers[newIndex] = rateMultipliers[t];
@@ -1211,15 +1056,15 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard, VM {
         // refund excess lpAmount_ if added
         uint256 _lpSurplus = lpAmount_ - changeInSupply;
         if (_lpSurplus > 0) {
-            PoolToken(tokenAddress).mint(msg.sender, _lpSurplus); // refund excess supply back to the manager
+            PoolToken(tokenAddress).mint(msg.sender, _lpSurplus);
         }
 
         amplification = amplification_;
         packedPoolVirtualBalance = _packPoolVirtualBalance(vbProd, vbSum);
 
-        // Burn LP tokens and transfer removed token
-        PoolToken(tokenAddress).burn(msg.sender, lpAmount_); //  burn the lp amount approved by the manager
-        PoolToken(tokenAddress).mint(vaultAddress, changeInSupply); // distribute change in supply amongst depositors
+        // burn LP tokens and transfer removed token
+        PoolToken(tokenAddress).burn(msg.sender, lpAmount_);
+        supply = newSupply;
         uint256 balance = ERC20(removedAddress).balanceOf(address(this));
         SafeTransferLib.safeTransfer(removedAddress, msg.sender, balance);
 
