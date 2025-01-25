@@ -16,11 +16,14 @@ contract Vault is ERC4626Fees, Ownable {
     error Vault__ProtocolFeeCannotExceed500Bps();
     error Vault__PerformanceFeeCannotExceed500bps();
     error Vault__RecipientCannotBeZeroAddress();
+    error Vault__DepositCapMAxxedOut();
+    error Vault__NewCapCannotBeLessThanTotalAssets();
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                           EVENTS                           */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
+    event CapUpdated(uint256 indexed newCap);
     event SetProtocolFeeAddress(address indexed protocolFeeAddress);
     event SetDepositFee(uint256 indexed depositFee);
     event SetManagementFee(uint256 indexed managementFeeInBps);
@@ -37,26 +40,29 @@ contract Vault is ERC4626Fees, Ownable {
     /// @dev performance fee in basis points
     uint256 public performanceFeeInBps;
 
-    /// @dev high-water mark for calculating performance fee
-    uint256 public highWaterMark;
-
-    /// @dev peformance fee recipient
-    address public performanceFeeRecipient;
+    /// @dev annualized management fee in basis points
+    uint256 public managementFeeInBps;
 
     /// @dev deposit fee
     uint256 public depositFeeInBps;
 
-    /// @dev annualized management fee in basis points
-    uint256 public managementFeeInBps;
+    /// @dev high-water mark for calculating performance fee
+    uint256 public highWaterMark;
 
-    /// @dev timestamp of the last management fee accrual
-    uint256 public lastFeeAccrual;
+    /// @dev total assets deposited by users. (totalAssets() - yield)
+    uint256 public totalUserDeposits;
 
-    /// @dev fee address
-    address public protocolFeeAddress;
+    /// @dev peformance fee recipient
+    address public performanceFeeRecipient;
 
     /// @dev management fee recipient
     address public managementFeeRecipient;
+
+    /// @dev fee address
+    address public depositFeeRecipient;
+
+    /// @dev timestamp of the last management fee accrual
+    uint256 public lastFeeAccrual;
 
     /// @dev management fees accrued since last claim
     uint256 public accruedManagementFees;
@@ -64,23 +70,30 @@ contract Vault is ERC4626Fees, Ownable {
     /// @dev performace fees accrued since last claim
     uint256 public accruedPerformanceFees;
 
+    /// @dev deposit cap for the vault
+    uint256 public depositCap;
+
     constructor(
         address underlying_,
         string memory name_,
         string memory symbol_,
-        uint256 depositFeeInBps_,
         uint256 managementFeeInBps_,
-        address protocolFeeAddress_,
+        uint256 depositFeeInBps_,
+        address depositFeeRecipient_,
         address managementFeeRecipient_,
         address owner_
     ) ERC20(name_, symbol_) ERC4626(IERC20(underlying_)) {
-        depositFeeInBps = depositFeeInBps_;
         managementFeeInBps = managementFeeInBps_;
-        protocolFeeAddress = protocolFeeAddress_;
+        depositFeeInBps = depositFeeInBps_;
+
         managementFeeRecipient = managementFeeRecipient_;
+        depositFeeRecipient = depositFeeRecipient_;
+
         _setOwner(owner_);
         lastFeeAccrual = block.timestamp;
         highWaterMark = totalAssets();
+
+        depositCap = type(uint256).max;
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -89,17 +102,10 @@ contract Vault is ERC4626Fees, Ownable {
 
     function _accruePerformanceFee() internal {
         uint256 totalAssetsValue = totalAssets();
+        uint256 yield = totalAssetsValue > totalUserDeposits ? totalAssetsValue - totalUserDeposits : 0;
 
-        if (totalAssetsValue > highWaterMark && performanceFeeInBps > 0) {
-            uint256 profit = totalAssetsValue - highWaterMark;
-            uint256 feeAmount = (profit * performanceFeeInBps) / 10_000;
-
-            if (feeAmount > 0) {
-                accruedPerformanceFees += feeAmount;
-            }
-
-            highWaterMark = totalAssetsValue;
-        }
+        uint256 feeAmount = yield > 0 && performanceFeeInBps > 0 ? (yield * performanceFeeInBps) / 10_000 : 0;
+        if (feeAmount > 0) accruedPerformanceFees += feeAmount;
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -110,22 +116,22 @@ contract Vault is ERC4626Fees, Ownable {
         uint256 elapsedTime = block.timestamp - lastFeeAccrual;
         if (elapsedTime == 0 || managementFeeInBps == 0) return;
 
-        uint256 totalAssetsValue = totalAssets();
-        uint256 feeAmount = (totalAssetsValue * elapsedTime * managementFeeInBps) / 10_000 / 365 days;
-
-        if (feeAmount > 0) {
-            accruedManagementFees += feeAmount;
-        }
-
+        uint256 feeAmount = (totalUserDeposits * elapsedTime * managementFeeInBps) / 10_000 / 365 days;
+        accruedManagementFees = feeAmount > 0 ? accruedManagementFees + feeAmount : accruedManagementFees;
         lastFeeAccrual = block.timestamp;
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                    OVERRIDE FUNCTIONS                     */
+    /*                 ERC4626 OVERRIDE FUNCTIONS                 */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal override {
+        if (totalAssets() + assets > depositCap) {
+            revert Vault__DepositCapMAxxedOut();
+        }
+
         _accrueManagementFee();
+        totalUserDeposits += assets;
         _accruePerformanceFee();
         super._deposit(caller, receiver, assets, shares);
     }
@@ -135,12 +141,13 @@ contract Vault is ERC4626Fees, Ownable {
         override
     {
         _accrueManagementFee();
+        totalUserDeposits -= assets;
         _accruePerformanceFee();
         super._withdraw(caller, receiver, owner, assets, shares);
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                      FEE CONFIGURATION                     */
+    /*                       ADMIN FUNCTIONS                      */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     function setPerformanceFeeInBps(uint256 fee_) public onlyOwner {
@@ -157,7 +164,7 @@ contract Vault is ERC4626Fees, Ownable {
 
     function setProtocolFeeAddress(address address_) public onlyOwner {
         if (address_ == address(0)) revert Vault__ProtocolFeeAddressCannotBeZero();
-        protocolFeeAddress = address_;
+        depositFeeRecipient = address_;
         emit SetProtocolFeeAddress(address_);
     }
 
@@ -183,7 +190,21 @@ contract Vault is ERC4626Fees, Ownable {
     }
 
     function _entryFeeRecipient() internal view virtual override returns (address) {
-        return protocolFeeAddress;
+        return depositFeeRecipient;
+    }
+
+    function updateCap(uint256 newCap_) external onlyOwner {
+        if (newCap_ < totalAssets()) {
+            revert Vault__NewCapCannotBeLessThanTotalAssets();
+        }
+        uint256 oldCap = depositCap;
+        depositCap = newCap_;
+        emit CapUpdated(newCap_);
+    }
+
+    function harvestFees() external {
+        _accrueManagementFee();
+        _accruePerformanceFee();
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
