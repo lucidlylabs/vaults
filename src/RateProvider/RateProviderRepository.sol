@@ -2,24 +2,49 @@
 pragma solidity ^0.8.0;
 
 import {EnumerableSetLib} from "solady/utils/EnumerableSetLib.sol";
-import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-import {Ownable} from "solady/auth/Ownable.sol";
+import {Ownable} from "../../lib/solady/src/auth/Ownable.sol";
 import {Vault} from "../Vault.sol";
 import {Pool} from "../Pool.sol";
 import {RateProvider} from "./RateProvider.sol";
 
+import {ERC20} from "../../lib/solady/src/tokens/ERC20.sol";
+import {FixedPointMathLib} from "../../lib/solady/src/utils/FixedPointMathLib.sol";
+
 contract RateProviderRepository is Ownable {
     using EnumerableSetLib for EnumerableSetLib.AddressSet;
 
-    Vault public vault;
-    Pool public pool;
-    EnumerableSetLib.AddressSet private tokenAddresses;
-    mapping(address => address) public rateProviders;
+    /// @notice the vault this repository is associated with
+    Vault public immutable vault;
 
-    error TokenNotSupported();
-    constructor(address vault_, address pool_) {
+    /// @notice the underlying pool
+    Pool public immutable pool;
+
+    ///  @notice the base asset rates are provided in.
+    ERC20 public immutable base;
+
+    /// @notice The decimals rates are provided in.
+    uint8 public immutable decimals;
+
+    /// @param isPeggedToBase whether or not the asset is 1:1 with the base asset
+    /// @param rateProvider the rate provider for this asset if `isPeggedToBase` is false
+    struct RateProviderData {
+        bool isPeggedToBase;
+        RateProvider rateProvider;
+    }
+
+    EnumerableSetLib.AddressSet private tokenAddresses;
+
+    /// @dev Maps ERC20s to their RateProviderData.
+    mapping(address => RateProviderData) public rateProviderData;
+
+    error RateProviderRepository__TokenNotSupported();
+    error RateProviderRepository__TokenAlreadySupported();
+
+    constructor(address vault_, address pool_, address base_) {
         vault = Vault(vault_);
         pool = Pool(pool_);
+        base = ERC20(base_);
+        decimals = ERC20(vault_).decimals();
     }
 
     function getVaultSharePrice() external view returns (uint256) {
@@ -30,46 +55,71 @@ contract RateProviderRepository is Ownable {
         return tokenAddresses.contains(token_);
     }
 
-    function addToken(address token_, address rateProvider_) external onlyOwner {
-        tokenAddresses.add(token_);
-        rateProviders[token_] = rateProvider_;
+    function addToken(address tokenAddress, bool isPeggedToBase, address rateProviderAddress) external onlyOwner {
+        if (tokenAddresses.contains(tokenAddress)) revert RateProviderRepository__TokenAlreadySupported();
+        tokenAddresses.add(tokenAddress);
+
+        rateProviderData[tokenAddress] =
+            RateProviderData({isPeggedToBase: isPeggedToBase, rateProvider: RateProvider(rateProviderAddress)});
     }
 
-    function removeToken(address token_) external onlyOwner {
-        tokenAddresses.remove(token_);
-        rateProviders[token_] = address(0);
+    function removeToken(address tokenAddress) external onlyOwner {
+        if (!tokenAddresses.contains(tokenAddress)) revert RateProviderRepository__TokenNotSupported();
+
+        tokenAddresses.remove(tokenAddress);
+        rateProviderData[tokenAddress] =
+            RateProviderData({isPeggedToBase: false, rateProvider: RateProvider(address(0))});
     }
 
-    function getRateProvider(address token_) external view returns (address) {
-        return rateProviders[token_];
+    function getRateProvider(address tokenAddress) external view returns (address) {
+        if (!tokenAddresses.contains(tokenAddress)) revert RateProviderRepository__TokenNotSupported();
+
+        RateProvider rateProvider = rateProviderData[tokenAddress].rateProvider;
+        return address(rateProvider);
     }
 
-    function setRateProvider(address token_, address rateProvider_) external onlyOwner {
-        if (!tokenAddresses.contains(token_)) revert TokenNotSupported();
-        
-        rateProviders[token_] = rateProvider_;
+    function setRateProvider(address tokenAddress, bool isPeggedToBase, address rateProviderAddress)
+        external
+        onlyOwner
+    {
+        if (!tokenAddresses.contains(tokenAddress)) revert RateProviderRepository__TokenNotSupported();
+
+        rateProviderData[tokenAddress] =
+            RateProviderData({isPeggedToBase: isPeggedToBase, rateProvider: RateProvider(rateProviderAddress)});
     }
 
-    function getRate(address token_) external view returns (uint256) {
-        if (!tokenAddresses.contains(token_)) revert TokenNotSupported();
+    function getRate(address tokenAddress) external view returns (uint256) {
+        if (!tokenAddresses.contains(tokenAddress)) revert RateProviderRepository__TokenNotSupported();
 
-        return RateProvider(rateProviders[token_]).rate(token_);
+        RateProviderData memory data = rateProviderData[tokenAddress];
+        return data.rateProvider.rate(tokenAddress);
     }
 
-    function getVaultSharePriceInAsset(address token_) external view returns (uint256) {
-        if (!tokenAddresses.contains(token_)) revert TokenNotSupported();
+    /// @notice get the price of one vault share in terms of ERC20(tokenAddress)
+    /// @dev tokenAddress must have its RateProviderData set, else this will revert
+    /// @dev This function will lose precision if the exchange rate decimals is greater than the asset's decimals.
+    function getVaultSharePriceInAsset(address tokenAddress) external view returns (uint256) {
+        if (!tokenAddresses.contains(tokenAddress)) revert RateProviderRepository__TokenNotSupported();
 
-        uint256 vaultSharePrice = vault.previewRedeem(1e18);
-        uint256 rate = RateProvider(rateProviders[token_]).rate(token_);
+        uint256 rateOfVaultShareInBase = vault.previewRedeem(1e18);
 
-        return vaultSharePrice * (10 ** ERC20(token_).decimals()) / rate;
+        RateProviderData memory data = rateProviderData[tokenAddress];
+        uint256 rateOfQuoteInBase = data.rateProvider.rate(tokenAddress);
+
+        return FixedPointMathLib.divWadUp(rateOfVaultShareInBase, rateOfQuoteInBase);
     }
 
-    function getAssetPriceInVaultShare(address token_) external view returns (uint256) {
-        if (!tokenAddresses.contains(token_)) revert TokenNotSupported();
+    /// @notice get the price of one unit of ERC20(tokenAddress) in terms of vault share
+    /// @dev tokenAddress must have its RateProviderData set, else this will revert
+    /// @dev This function will lose precision if the exchange rate decimals is greater than the asset's decimals.
+    function getAssetPriceInVaultShare(address tokenAddress) external view returns (uint256) {
+        if (!tokenAddresses.contains(tokenAddress)) revert RateProviderRepository__TokenNotSupported();
 
-        uint256 vaultSharePrice = vault.previewRedeem(1e18);
-        uint256 rate = RateProvider(rateProviders[token_]).rate(token_);
-        return rate * 1e18 / vaultSharePrice;
+        uint256 rateOfVaultShareInBase = vault.previewRedeem(1e18);
+
+        RateProviderData memory data = rateProviderData[tokenAddress];
+        uint256 rateOfWantInBase = data.rateProvider.rate(tokenAddress);
+
+        return FixedPointMathLib.divWad(rateOfWantInBase, rateOfVaultShareInBase);
     }
 }

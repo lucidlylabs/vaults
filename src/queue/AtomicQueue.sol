@@ -6,8 +6,8 @@ import {ReentrancyGuard} from "../../lib/solady/src/utils/ReentrancyGuard.sol";
 import {FixedPointMathLib} from "../../lib/solady/src/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "../../lib/solady/src/utils/SafeTransferLib.sol";
 import {ERC20} from "../../lib/solady/src/tokens/ERC20.sol";
-
 import {IRateProvider} from "../RateProvider/IRateProvider.sol";
+import {RateProviderRepository} from "../RateProvider/RateProviderRepository.sol";
 import {IAtomicSolver} from "./IAtomicSolver.sol";
 
 contract AtomicQueue is OwnableRoles, ReentrancyGuard {
@@ -104,7 +104,7 @@ contract AtomicQueue is OwnableRoles, ReentrancyGuard {
     error AtomicQueue__SafeRequestInsufficientOfferAllowance(uint256 offerAmount, uint256 offerAllowance);
     error AtomicQueue__SafeRequestOfferAmountZero();
     error AtomicQueue__SafeRequestDiscountTooLarge();
-    error AtomicQueue__SafeRequestAccountantOfferMismatch();
+    error AtomicQueue__SafeRequestOfferMismatch();
     error AtomicQueue__SafeRequestCannotCastToUint88();
     error AtomicQueue__Paused();
 
@@ -121,6 +121,7 @@ contract AtomicQueue is OwnableRoles, ReentrancyGuard {
         uint256 minPrice,
         uint256 timestamp
     );
+
     event AtomicRequestFulfilled(
         address indexed user,
         address indexed offerToken,
@@ -228,7 +229,7 @@ contract AtomicQueue is OwnableRoles, ReentrancyGuard {
         ERC20 offer,
         ERC20 want,
         AtomicRequest memory userRequest,
-        IRateProvider rateProviderRepo,
+        RateProviderRepository rateProviderRepo,
         uint256 discount
     ) external nonReentrant {
         uint256 offerBalance = offer.balanceOf(msg.sender);
@@ -245,12 +246,11 @@ contract AtomicQueue is OwnableRoles, ReentrancyGuard {
         if (userRequest.offerAmount == 0) revert AtomicQueue__SafeRequestOfferAmountZero();
         if (discount > MAX_DISCOUNT) revert AtomicQueue__SafeRequestDiscountTooLarge();
 
-        // check if the offer asset is the vault share asset.
-        // check if the want asset is registered in the rateProvider contract
-        // calculate rate of the want asset in terms of offer asset
-        // is the rate is more than type(uint88).max, revert
-        // override userRequest.atomicPrice with this calculated price
-
+        if (address(offer) != address(rateProviderRepo.vault())) revert AtomicQueue__SafeRequestOfferMismatch();
+        uint256 safeRate = rateProviderRepo.getVaultSharePriceInAsset(address(want));
+        uint256 safeAtomicPrice = FixedPointMathLib.mulDiv(safeRate, 1e6 - discount, 1e6);
+        if (safeAtomicPrice > type(uint8).max) revert AtomicQueue__SafeRequestCannotCastToUint88();
+        userRequest.atomicPrice = uint88(safeAtomicPrice);
         _updateAtomicRequest(offer, want, userRequest);
     }
 
@@ -476,7 +476,7 @@ contract AtomicQueue is OwnableRoles, ReentrancyGuard {
         );
     }
 
-    /// @notice Helper function to calculate the amount of want assets a users
+    /// @notice helper function to calculate the amount of want assets a users
     ///         wants in exchange for `offerAmount` of offer asset.
     function _calculateAssetAmount(uint256 offerAmount, uint256 atomicPrice, uint8 offerDecimals)
         internal
