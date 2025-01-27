@@ -990,7 +990,7 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard {
         uint256 amplification_,
         uint256[] calldata newWeights_,
         uint256 duration_
-    ) external onlyOwner {
+    ) external onlyPoolManager {
         uint256 _numTokens = numTokens;
 
         if (_numTokens <= 2) revert Pool__MustBeInitiatedWithMoreThanOneToken();
