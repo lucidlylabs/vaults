@@ -17,6 +17,8 @@ contract Vault is ERC4626Fees, Ownable {
     error Vault__RecipientCannotBeZeroAddress();
     error Vault__DepositCapMAxxedOut();
     error Vault__NewCapCannotBeLessThanTotalAssets();
+    error Vault__ManagementFeeCannotExceed500Bps();
+    error Vault__ManagementFeeRecipientCannotBeZeroAddress();
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                           EVENTS                           */
@@ -31,7 +33,8 @@ contract Vault is ERC4626Fees, Ownable {
     event SetPerformanceFeeRecipient(address indexed performanceFeeRecipient);
     event AccruedPerformanceFee(uint256 feeAmount);
     event ClaimedFees(uint256 managementFees, uint256 performanceFees);
-
+    event ManagementFeeRecipientSet(address indexed managementFeeRecipient);
+    
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                           STATE                            */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
@@ -203,7 +206,7 @@ contract Vault is ERC4626Fees, Ownable {
     * @param fee_ The new management fee, capped at 500 basis points.
     */
     function setManagementFeeInBps(uint256 fee_) public onlyOwner {
-        require(fee_ <= 500, "Management fee exceeds 5%");
+        if (fee_ > 500) revert Vault__ManagementFeeCannotExceed500Bps();
         managementFeeInBps = fee_;
         emit SetManagementFee(fee_);
     }
@@ -213,8 +216,9 @@ contract Vault is ERC4626Fees, Ownable {
     * @param recipient_ The address to receive management fees.
     */
     function setManagementFeeRecipient(address recipient_) public onlyOwner {
-        require(recipient_ != address(0), "Recipient cannot be zero address");
+        if (recipient_ == address(0)) revert Vault__ManagementFeeRecipientCannotBeZeroAddress();
         managementFeeRecipient = recipient_;
+        emit ManagementFeeRecipientSet(recipient_);
     }
 
     function _entryFeeBasisPoints() internal view virtual override returns (uint256) {
