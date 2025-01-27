@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import {console} from "../lib/forge-std/src/console.sol";
 import {Test} from "../lib/forge-std/src/Test.sol";
 import {Vault} from "../src/Vault.sol";
-import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import {IERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {MockToken} from "../src/Mocks/MockToken.sol";
 
 contract VaultTest is Test {
