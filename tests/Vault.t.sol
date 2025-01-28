@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import {console} from "../lib/forge-std/src/console.sol";
 import {Test} from "../lib/forge-std/src/Test.sol";
 import {Vault} from "../src/Vault.sol";
-import {IERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import {IERC20, ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {MockToken} from "../src/Mocks/MockToken.sol";
 
 contract VaultTest is Test {
@@ -12,6 +12,9 @@ contract VaultTest is Test {
     IERC20 public asset;
     address public owner;
     address public user;
+    address public user2;
+    address public user3;
+    address public user4;
 
     function setUp() public {
         string memory name = "Mock Token";
@@ -22,12 +25,24 @@ contract VaultTest is Test {
 
         owner = address(this);
         user = address(0x123);
+        user2 = address(0x456);
 
-        vault = new Vault(address(asset), "Vault Token", "VTK", 100, 50, address(0x456), address(0x789), owner);
+        vault = new Vault(address(asset), "Vault Token", "VTK", 0, 0, address(0x456), address(0x789), owner);
 
-        vm.prank(user);
         MockToken(address(asset)).mint(user, 100_000 * 10 ** decimals);
         vm.prank(user);
+        asset.approve(address(vault), type(uint256).max);
+
+        MockToken(address(asset)).mint(user, 100_000 * 10 ** decimals);
+        vm.prank(user2);
+        asset.approve(address(vault), type(uint256).max);
+
+        MockToken(address(asset)).mint(user, 100_000 * 10 ** decimals);
+        vm.prank(user3);
+        asset.approve(address(vault), type(uint256).max);
+
+        MockToken(address(asset)).mint(user, 100_000 * 10 ** decimals);
+        vm.prank(user4);
         asset.approve(address(vault), type(uint256).max);
     }
 
@@ -51,6 +66,7 @@ contract VaultTest is Test {
     }
 
     function testManagementFeeAccounting() public {
+        vault.setManagementFeeInBps(100);
         uint256 initialTime = vault.lastFeeAccrual();
         vm.warp(initialTime + 365 days);
 
