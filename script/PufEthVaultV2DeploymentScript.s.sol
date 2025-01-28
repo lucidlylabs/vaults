@@ -76,7 +76,7 @@ contract PufEthVaultV2DeploymentScript is Script {
         address admin = vm.addr(adminPk);
         poolToken = new PoolToken("Lucidly PufEth Pool Token", "lPufEth-Token", 18, admin);
         pool = new Pool(address(poolToken), 450 * PRECISION, tokens, rateProviders, weights, admin);
-        vault = new Vault(address(poolToken), "Lucidly PufEth Vault", "PufEth-VS", 100, admin, admin);
+        vault = new Vault(address(poolToken), "Lucidly PufEth Vault", "PufEth-VS", 100, 100, admin, admin, admin);
 
         ownerContract = new PoolOwner(address(pool));
 

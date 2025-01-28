@@ -89,7 +89,7 @@ contract PoolRemove is Test {
         pool = new Pool(address(poolToken), amplification, tokens, rateProviders, weights, jake);
 
         // deploy staking contract
-        staking = new Vault(address(pool), "XYZ Mastervault Token", "XYZ-MVT", 200, jake, jake);
+        staking = new Vault(address(poolToken), "XYZ Mastervault Token", "XYZ-MVT", 200, 100, jake, jake, jake);
 
         // set staking on pool
         vm.startPrank(jake);

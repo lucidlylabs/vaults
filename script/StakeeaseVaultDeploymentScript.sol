@@ -73,7 +73,7 @@ contract DeployVault is Script {
 
         pool = new Pool(address(poolToken), 450 * PRECISION, tokens, rateProviders, weights, admin);
 
-        vault = new Vault(address(poolToken), "Lucidly sxETH Vault", "sxETH-VS", 100, admin, admin);
+        vault = new Vault(address(poolToken), "Lucidly sxETH Vault", "sxETH-VS", 100, 100, admin, admin, admin);
 
         poolToken.setPool(address(pool));
         pool.setVaultAddress(address(vault));

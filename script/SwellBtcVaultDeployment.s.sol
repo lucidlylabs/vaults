@@ -68,7 +68,9 @@ contract SwBtcVaultDeploymentScript is Script {
 
         poolToken = new PoolToken("Lucidly swBTC Vault Pool Token", "swBTC-VPT", 18, ADMIN_ADDRESS);
         pool = new Pool(address(poolToken), 10 * PRECISION, tokens, rateProviders, weights, ADMIN_ADDRESS);
-        vault = new Vault(address(poolToken), "Lucidly swBTC Vault", "swBTC-VS", 100, ADMIN_ADDRESS, ADMIN_ADDRESS);
+        vault = new Vault(
+            address(poolToken), "Lucidly swBTC Vault", "swBTC-VS", 100, 100, ADMIN_ADDRESS, ADMIN_ADDRESS, ADMIN_ADDRESS
+        );
 
         ownerContract = new PoolOwner(address(pool));
 

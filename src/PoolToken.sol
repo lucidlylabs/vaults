@@ -5,15 +5,37 @@ import {ERC20} from "../lib/solady/src/tokens/ERC20.sol";
 import {Ownable} from "../lib/solady/src/auth/Ownable.sol";
 
 contract PoolToken is ERC20, Ownable {
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                           ERRORS                           */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
     error Token__CallerIsNotPool();
     error Token__PoolAddressCannotBeZero();
+    error Token__VaultAddressCannotBeZero();
+    error Token__RecipientCannotBeZeroAddress();
+    error Token__PerformanceFeeCannotExceed8000bps();
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                           EVENTS                           */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     event PoolAddressSet(address newPoolAddress);
+    event VaultAddressSet(address newVaultAddress);
+    event PerformanceFeeSet(uint256 performanceFee);
+    event PerformanceFeeRecipientSet(address performanceFeeRecipient);
 
     string internal _name;
     string internal _symbol;
     uint8 internal _decimals;
-    address poolAddress;
+
+    address public poolAddress;
+    address public vaultAddress;
+
+    /// @dev performance fee in basis points
+    uint256 public performanceFeeInBps;
+
+    /// @dev peformance fee recipient
+    address public performanceFeeRecipient;
 
     function _checkCallerIsPool() internal view {
         if (msg.sender != poolAddress) {
@@ -42,7 +64,14 @@ contract PoolToken is ERC20, Ownable {
 
     function mint(address to_, uint256 amount_) public {
         _checkCallerIsPool();
-        _mint(to_, amount_);
+
+        if (to_ == vaultAddress) {
+            uint256 feeAmount = (amount_ * performanceFeeInBps) / 10_000;
+            _mint(performanceFeeRecipient, feeAmount);
+            _mint(to_, amount_ - feeAmount);
+        } else {
+            _mint(to_, amount_);
+        }
     }
 
     function burn(address from_, uint256 amount_) public {
@@ -53,7 +82,33 @@ contract PoolToken is ERC20, Ownable {
     function setPool(address poolAddress_) public onlyOwner {
         if (poolAddress_ == address(0)) revert Token__PoolAddressCannotBeZero();
         poolAddress = poolAddress_;
+        emit PoolAddressSet(poolAddress_);
+    }
+
+    function setVaultAddress(address vaultAddress_) public onlyOwner {
+        if (vaultAddress_ == address(0)) revert Token__VaultAddressCannotBeZero();
+        vaultAddress = vaultAddress_;
         renounceOwnership();
-        emit PoolAddressSet(poolAddress);
+        emit VaultAddressSet(vaultAddress_);
+    }
+
+    /**
+     * @notice Sets the performance fee in basis points.
+     * @param fee_ The new performance fee, capped at 8000 basis points.
+     */
+    function setPerformanceFeeInBps(uint256 fee_) public onlyOwner {
+        if (fee_ > 8000) revert Token__PerformanceFeeCannotExceed8000bps();
+        performanceFeeInBps = fee_;
+        emit PerformanceFeeSet(fee_);
+    }
+
+    /**
+     * @notice Sets the recipient for performance fees.
+     * @param recipient_ The address to receive performance fees.
+     */
+    function setPerformanceFeeRecipient(address recipient_) public onlyOwner {
+        if (recipient_ == address(0)) revert Token__RecipientCannotBeZeroAddress();
+        performanceFeeRecipient = recipient_;
+        emit PerformanceFeeRecipientSet(recipient_);
     }
 }
