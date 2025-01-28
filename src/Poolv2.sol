@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {console} from "../lib/forge-std/src/console.sol";
 import {OwnableRoles} from "../lib/solady/src/auth/OwnableRoles.sol";
 import {ERC20} from "../lib/solady/src/tokens/ERC20.sol";
 import {ReentrancyGuard} from "../lib/solady/src/utils/ReentrancyGuard.sol";
@@ -11,9 +10,6 @@ import {SafeTransferLib} from "../lib/solady/src/utils/SafeTransferLib.sol";
 import {IRateProvider} from "./RateProvider/IRateProvider.sol";
 import {LogExpMath} from "./BalancerLibCode/LogExpMath.sol";
 import {PoolToken} from "./PoolToken.sol";
-
-import {console} from "../lib/forge-std/src/console.sol";
-import {ICurvePool} from "./interfaces/ICurvePool.sol";
 
 contract PoolV2 is OwnableRoles, ReentrancyGuard {
     uint256 constant PRECISION = 1_000_000_000_000_000_000;
@@ -141,11 +137,6 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard {
     uint256 packedPoolVirtualBalance; // vbProd (128) | vbSum (128)
     // vbProd: pi, product term `product((w_i * D / x_i)^(w_i n))`
     // vbSum: sigma, sum term `sum(x_i)`
-
-    // Add new state variables
-    address public constant CURVE_SUSDE_SDAI_POOL = 0x167478921b907422F8E88B43C4Af2B8BEa278d3A; // Replace with actual address
-    address public constant SUSDE = 0x9D39A5DE30e57443BfF2A8307A4256c8797A3497; // Replace with actual sUSDe address
-    address public constant SDAI = 0x83F20F44975D03b1b09e64809B757c47f942BEeA; // Replace with actual sDAI address
 
     /// @notice constructor
     /// @dev sum of all weights
