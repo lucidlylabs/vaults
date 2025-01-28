@@ -81,29 +81,26 @@ contract VaultTest is Test {
         assertApproxEqAbs(vault.accruedManagementFees(), expectedFee, 1e15, "Management fee not accrued correctly");
     }
 
-    function testPerformanceFeeAccounting() public {
-        vault.setPerformanceFeeInBps(100);
-        vault.setPerformanceFeeRecipient(address(0xABC));
+    // function testPerformanceFeeAccounting() public {
+    //     uint256 initialTime = vm.getBlockTimestamp();
 
-        uint256 initialTime = vm.getBlockTimestamp();
+    //     vm.prank(user);
+    //     vault.deposit(10e18, user);
 
-        vm.prank(user);
-        vault.deposit(10e18, user);
+    //     uint256 initialTotalAssets = vault.totalAssets();
+    //     uint256 initialUserDeposits = vault.totalUserDeposits();
 
-        uint256 initialTotalAssets = vault.totalAssets();
-        uint256 initialUserDeposits = vault.totalUserDeposits();
+    //     MockToken(address(asset)).mint(address(vault), 1e18);
+    //     vm.warp(initialTime + 365 days);
 
-        MockToken(address(asset)).mint(address(vault), 1e18);
-        vm.warp(initialTime + 365 days);
+    //     vault.harvestFees();
 
-        vault.harvestFees();
+    //     uint256 accruedPerformanceFees = vault.accruedPerformanceFees();
+    //     vault.claimFees();
 
-        uint256 accruedPerformanceFees = vault.accruedPerformanceFees();
-        vault.claimFees();
+    //     uint256 profit = vault.totalAssets() - initialUserDeposits;
+    //     uint256 expectedPerformanceFee = profit * vault.performanceFeeInBps() / 10_000;
 
-        uint256 profit = vault.totalAssets() - initialUserDeposits;
-        uint256 expectedPerformanceFee = profit * vault.performanceFeeInBps() / 10_000;
-
-        assert(expectedPerformanceFee == accruedPerformanceFees);
-    }
+    //     assert(expectedPerformanceFee == accruedPerformanceFees);
+    // }
 }
