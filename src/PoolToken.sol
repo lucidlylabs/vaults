@@ -14,6 +14,8 @@ contract PoolToken is ERC20, Ownable {
     error Token__VaultAddressCannotBeZero();
     error Token__RecipientCannotBeZeroAddress();
     error Token__PerformanceFeeCannotExceed8000bps();
+    error Token__PoolAddressAlreadySet();
+    error Token__VaultAddressAlreadySet();
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                           EVENTS                           */
@@ -30,6 +32,9 @@ contract PoolToken is ERC20, Ownable {
 
     address public poolAddress;
     address public vaultAddress;
+
+    bool private poolAddressSet = false;
+    bool private vaultAddressSet = false;
 
     /// @dev performance fee in basis points
     uint256 public performanceFeeInBps;
@@ -80,15 +85,18 @@ contract PoolToken is ERC20, Ownable {
     }
 
     function setPool(address poolAddress_) public onlyOwner {
+        if (poolAddressSet) revert Token__PoolAddressAlreadySet();
         if (poolAddress_ == address(0)) revert Token__PoolAddressCannotBeZero();
         poolAddress = poolAddress_;
+        poolAddressSet = true;
         emit PoolAddressSet(poolAddress_);
     }
 
     function setVaultAddress(address vaultAddress_) public onlyOwner {
+        if (vaultAddressSet) revert Token__VaultAddressAlreadySet();
         if (vaultAddress_ == address(0)) revert Token__VaultAddressCannotBeZero();
         vaultAddress = vaultAddress_;
-        renounceOwnership();
+        vaultAddressSet = true;
         emit VaultAddressSet(vaultAddress_);
     }
 
