@@ -224,6 +224,39 @@ contract AggregatorTest is Test {
         assert(sharesEstimated == shares);
     }
 
+    // function test__ExecuteZapAndDeposit() public {
+    //     vm.createSelectFork(vm.rpcUrl("http://127.0.0.1:8545"));
+
+    //     uint256[] memory amounts = new uint256[](4);
+    //     bytes memory data =
+    //         "73fc445700000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000254022500c0a13d4a67745d4ed129af590c495897ee2c7f8cfcc02aaa39b223fe8d0a0e5c4f27ead9083c756cc29d39a5de30e57443bff2a8307a4256c8797a3497e000d4b800d9f800e3c800e5551e60079a46ba41652f9d7cef6ee967c15b6bb0a71e65ccfbcffc5e4f08b22a26b46d74baa8decec41a0bdba7a8e921219f9399cbb2ae245016509c06a69c491b0000e0678fea99b803f84a2c247146d388f800c8b1a2bc2ec50000060300e4128acb08f80100000000000000000000000000000000000000000000000000000001000276a400000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000014c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20000000000000000000000000100f0060300f40300e40400f60080c7bbec68d12a0d1830360f8ec58fa599ba1b0e9b00070a000000000000000000000000000000000000000000000000000000000000030199050020000000000000000000000000fffd8963efd1fc6a506488495d951d5263988d2500000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000014dac17f958d2ee523a2206206994597c13d831ec70000000000000000000000000100f002004803008a0500400401c00080867b321132b18b5bf3775c0d9040d1872979422e03019905006002000000ec00f0000000004001760185018507002001ba01c000000000400240025102510700200265026b0000000000000000000000000000";
+    //     address WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    //     address MAGPIEROUTER = 0x15392211222B46A0eA85a9A800830486D144848D;
+
+    //     agg = Aggregator(0xA13d4a67745D4Ed129AF590c495897eE2C7F8Cfc);
+
+    //     pool = Pool(0xec970a39fc83A492103Ed707a290e050E2DA375c);
+    //     vault = Vault(0xEf1BCC329081f04059b766F04C4A617AdF462934);
+
+    //     vm.startPrank(alice);
+    //     deal(WETH, alice, 1 ether);
+    //     require(ERC20(WETH).approve(MAGPIEROUTER, type(uint256).max), "could not approve");
+    //     (bool success, bytes memory response) = MAGPIEROUTER.call(data);
+    //     require(success, "router call failed");
+    //     uint256 amtReceived = ERC20(pool.tokens(0)).balanceOf(alice);
+    //     amounts[0] = amtReceived;
+    //     require(ERC20(pool.tokens(0)).approve(address(agg), type(uint256).max), "could not approve");
+    //     vm.stopPrank();
+
+    //     uint256 sharesOfAlice = vault.balanceOf(alice);
+
+    //     vm.startPrank(alice);
+    //     uint256 shares = agg.depositSingle(0, amounts[0], alice, 0, address(pool));
+    //     vm.stopPrank();
+
+    //     assert(shares == (vault.balanceOf(alice) - sharesOfAlice));
+    // }
+
     function test__depositFor() public {
         uint256 numTokens = pool.numTokens();
         uint256[] memory amounts = new uint256[](numTokens);

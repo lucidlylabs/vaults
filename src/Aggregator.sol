@@ -6,7 +6,8 @@ import {LibSort} from "solady/utils/LibSort.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 
-import {PoolV2} from "../src/Poolv2.sol";
+import {Pool} from "../src/Poolv2.sol";
+import {IMagPie} from "../src/IMagPie.sol";
 import {PoolToken} from "../src/PoolToken.sol";
 import {Vault} from "../src/Vault.sol";
 import {MockToken} from "../src/Mocks/MockToken.sol";
@@ -145,5 +146,39 @@ contract Aggregator {
         Vault vault = Vault(PoolV2(poolAddress).vaultAddress());
         uint256 lpRedeemed = vault.redeem(sharesToBurn, address(this), msg.sender);
         tokenOutAmount = PoolV2(poolAddress).removeLiquiditySingle(tokenOut, lpRedeemed, minAmountOut, receiver);
+    }
+
+    function executeZapAndDeposit(
+        address zapTokenAddress,
+        uint256 zapTokenAmount,
+        uint256 tokenIndex,
+        address receiver,
+        uint256 minLpAmount,
+        address poolAddress,
+        address routerAddress,
+        bytes calldata data
+    ) external returns (uint256 shares) {
+        require(zapTokenAddress != address(0), "Invalid zapTokenAddress.");
+        require(zapTokenAmount != 0, "Cannot allow 0 amount to zap in.");
+
+        SafeTransferLib.safeTransferFrom(zapTokenAddress, msg.sender, address(this), zapTokenAmount);
+        SafeTransferLib.safeApprove(zapTokenAddress, routerAddress, zapTokenAmount);
+
+        address token = Pool(poolAddress).tokens(tokenIndex);
+        uint256 cachedBalance = ERC20(token).balanceOf(address(this));
+
+        (bool success, bytes memory result) = routerAddress.call(data);
+        require(success, "router call failed");
+
+        uint256 tokenAmount = ERC20(token).balanceOf(address(this)) - cachedBalance;
+
+        ERC20(token).approve(poolAddress, tokenAmount);
+        uint256 numTokens = Pool(poolAddress).numTokens();
+        uint256[] memory addLiquidityAmounts = new uint256[](numTokens);
+        addLiquidityAmounts[tokenIndex] = tokenAmount;
+        address vaultAddress = Pool(poolAddress).vaultAddress();
+        uint256 lpReceived = Pool(poolAddress).addLiquidity(addLiquidityAmounts, minLpAmount, address(this));
+        PoolToken(Pool(poolAddress).tokenAddress()).approve(vaultAddress, lpReceived);
+        shares = Vault(vaultAddress).deposit(lpReceived, receiver);
     }
 }
