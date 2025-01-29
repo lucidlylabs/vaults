@@ -6,7 +6,7 @@ import {LibSort} from "solady/utils/LibSort.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 
-import {Pool} from "../src/Poolv2.sol";
+import {PoolV2} from "../src/Poolv2.sol";
 import {IMagPie} from "../src/IMagPie.sol";
 import {PoolToken} from "../src/PoolToken.sol";
 import {Vault} from "../src/Vault.sol";
@@ -164,21 +164,21 @@ contract Aggregator {
         SafeTransferLib.safeTransferFrom(zapTokenAddress, msg.sender, address(this), zapTokenAmount);
         SafeTransferLib.safeApprove(zapTokenAddress, routerAddress, zapTokenAmount);
 
-        address token = Pool(poolAddress).tokens(tokenIndex);
+        address token = PoolV2(poolAddress).tokens(tokenIndex);
         uint256 cachedBalance = ERC20(token).balanceOf(address(this));
 
-        (bool success, bytes memory result) = routerAddress.call(data);
+        (bool success,) = routerAddress.call(data);
         require(success, "router call failed");
 
         uint256 tokenAmount = ERC20(token).balanceOf(address(this)) - cachedBalance;
 
         ERC20(token).approve(poolAddress, tokenAmount);
-        uint256 numTokens = Pool(poolAddress).numTokens();
+        uint256 numTokens = PoolV2(poolAddress).numTokens();
         uint256[] memory addLiquidityAmounts = new uint256[](numTokens);
         addLiquidityAmounts[tokenIndex] = tokenAmount;
-        address vaultAddress = Pool(poolAddress).vaultAddress();
-        uint256 lpReceived = Pool(poolAddress).addLiquidity(addLiquidityAmounts, minLpAmount, address(this));
-        PoolToken(Pool(poolAddress).tokenAddress()).approve(vaultAddress, lpReceived);
+        address vaultAddress = PoolV2(poolAddress).vaultAddress();
+        uint256 lpReceived = PoolV2(poolAddress).addLiquidity(addLiquidityAmounts, minLpAmount, address(this));
+        PoolToken(PoolV2(poolAddress).tokenAddress()).approve(vaultAddress, lpReceived);
         shares = Vault(vaultAddress).deposit(lpReceived, receiver);
     }
 }

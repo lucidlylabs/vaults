@@ -5,7 +5,7 @@ import {Script} from "../lib/forge-std/src/Script.sol";
 import {console} from "../lib/forge-std/src/console.sol";
 import {Aggregator} from "../src/Aggregator.sol";
 import {MockToken} from "../src/Mocks/MockToken.sol";
-import {Pool} from "../src/Poolv2.sol";
+import {PoolV2} from "../src/Poolv2.sol";
 
 contract Zap is Script {
     Aggregator agg;
