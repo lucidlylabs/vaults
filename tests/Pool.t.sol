@@ -3,8 +3,6 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 
-import {console} from "forge-std/console.sol";
-
 import {ERC20} from "solady/tokens/ERC20.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
@@ -269,31 +267,9 @@ contract PoolTest is Test {
             (w2[i],,,) = pool2.weight(i);
         }
 
-        console.log("5 pool amplification: ", amplification1);
-        console.log("4 pool amplification: ", calculateWProd(weights2));
-
-        console.log("vbSum: ", vbSum);
-        console.log("vbSum2: ", vbSum2);
-
-        console.log("vbProd: ", vbProd);
-        console.log("vbProd: ", vbProd2);
-
-        console.log("supply: ", supply);
-        console.log("supply2: ", supply2);
-
-        // assert(vbSum == vbSum2);
-        // assert(vbProd == vbProd2);
-        // assert(supply == supply2);
-
-        // console.log("balance of the added token: ", MockToken(tokens0[n]).balanceOf(address(pool2)));
-
         for (uint256 i = 0; i < n + 1; i++) {
             assert(w1[i] == w2[i]);
         }
-
-        // // assert(ERC20(address(poolToken)).balanceOf(jake) == ERC20(address(poolToken)).balanceOf(alice));
-        console.log("pt balance of jake : ", ERC20(address(poolToken1)).balanceOf(jake));
-        console.log("pt balance of alice: ", ERC20(address(poolToken2)).balanceOf(alice));
     }
 
     function testPause() public {}

@@ -8,7 +8,7 @@ import {ERC20} from "../lib/solady/src/tokens/ERC20.sol";
 import {SafeTransferLib} from "../lib/solady/src/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "../lib/solady/src/utils/FixedPointMathLib.sol";
 
-import {Pool} from "../src/Pool.sol";
+import {PoolV2} from "../src/Poolv2.sol";
 import {PoolToken} from "../src/PoolToken.sol";
 import {Vault} from "../src/Vault.sol";
 import {MockToken} from "../src/Mocks/MockToken.sol";
@@ -19,11 +19,23 @@ import {LogExpMath} from "../src/BalancerLibCode/LogExpMath.sol";
 import {Aggregator} from "../src/Aggregator.sol";
 
 contract PoolRemoveToken is Test {
-    Pool pool;
+    PoolV2 pool;
     PoolToken poolToken;
     Vault vault;
     IRateProvider rp;
     Aggregator agg;
+
+    uint256 constant VB_MASK = 2 ** 96 - 1;
+    uint256 constant RATE_MASK = 2 ** 80 - 1;
+    uint128 constant RATE_SHIFT = 96;
+    uint128 constant PACKED_WEIGHT_SHIFT = 176;
+
+    uint256 constant WEIGHT_SCALE = 1_000_000_000_000;
+    uint256 constant WEIGHT_MASK = 2 ** 20 - 1;
+    uint128 constant TARGET_WEIGHT_SHIFT = 20;
+    uint128 constant LOWER_BAND_SHIFT = 40;
+    uint128 constant UPPER_BAND_SHIFT = 60;
+    uint256 constant MAX_POW_REL_ERR = 100; // 1e-16
 
     uint256 public constant PRECISION = 1e18;
     uint256 public constant MAX_NUM_TOKENS = 32;
@@ -65,8 +77,8 @@ contract PoolRemoveToken is Test {
         // set weights
         weights[0] = 20 * PRECISION / 100;
         weights[1] = 30 * PRECISION / 100;
-        weights[2] = 20 * PRECISION / 100;
-        weights[3] = 30 * PRECISION / 100;
+        weights[2] = 40 * PRECISION / 100;
+        weights[3] = 10 * PRECISION / 100;
 
         // set rateProviders
         rateProviders[0] = address(rp);
@@ -74,14 +86,13 @@ contract PoolRemoveToken is Test {
         rateProviders[2] = address(rp);
         rateProviders[3] = address(rp);
 
-        // amplification = calculateWProd(weights);
         amplification = 500 * 1e18;
 
         // deploy pool token
         poolToken = new PoolToken("XYZ Pool Token", "lXYZ", 18, jake);
 
         // deploy pool
-        pool = new Pool(address(poolToken), amplification, tokens, rateProviders, weights, jake);
+        pool = new PoolV2(address(poolToken), amplification, tokens, rateProviders, weights, jake);
 
         // deploy staking contract
         vault = new Vault(address(poolToken), "XYZ Vault Share", "XYZVS", 100, 100, jake, jake, jake);
@@ -98,10 +109,10 @@ contract PoolRemoveToken is Test {
         // mint tokens to first lp
         deal(address(token0), alice, 100_000_000 * 1e8); // 100,000,000 SWBTCWBTC_CURVE
         deal(address(token1), alice, 100_000_000 * 1e18); // 100,000,000 SWBTC
-        deal(address(token2), alice, 100_000_000 * 1e6); // 100,000,000 USDC
+        deal(address(token2), alice, 100_000_000 * 1e8); // 100,000,000 cbBTC
         deal(address(token3), alice, 100_000_000 * 1e8); // 100,000,000 SWBTC
 
-        uint256 total = 10_000 * 1e8; // considering we seed 10000 WBTC worth of assets
+        uint256 total = 10_000 * 1e18; // considering we seed 10000 WBTC worth of assets
 
         for (uint256 i = 0; i < 4; i++) {
             address token = tokens[i];
@@ -112,8 +123,7 @@ contract PoolRemoveToken is Test {
             vm.stopPrank();
 
             uint256 unadjustedRate = IRateProvider(rateProvider).rate(token); // price of an asset in WBTC, scaled to 18 precision
-            uint256 amount =
-                (total * weights[i] * 1e18 * 1e10) / (unadjustedRate * (10 ** (36 - ERC20(token).decimals())));
+            uint256 amount = (total * weights[i] * 1e18) / (unadjustedRate * (10 ** (36 - ERC20(token).decimals())));
             seedAmounts[i] = amount;
         }
 
@@ -126,140 +136,130 @@ contract PoolRemoveToken is Test {
         vm.stopPrank();
     }
 
-    function _calculateSeedAmounts(uint256 total, uint256 quoteTokenDecimals) internal returns (uint256[] memory) {
+    function _calculateSeedAmounts(uint256 total, address sender) internal returns (uint256[] memory) {
         uint256[] memory amounts = new uint256[](4);
         for (uint256 i = 0; i < 4; i++) {
             address token = tokens[i];
             address rateProvider = rateProviders[i];
 
-            vm.startPrank(alice);
+            vm.startPrank(sender);
             require(ERC20(token).approve(address(pool), type(uint256).max), "could not approve");
             vm.stopPrank();
 
-            uint256 unadjustedRate = IRateProvider(rateProvider).rate(token); // price of the asset scaled to 18 precision
+            uint256 unadjustedRate = IRateProvider(rateProvider).rate(token);
 
             // considering quoteTokenDecimals is <= 18
-            uint256 amount = (total * weights[i] * 1e18 * 10 ** (18 - quoteTokenDecimals))
+            // this is redundant code
+            uint256 amount = (total * weights[i] * 1e18 * 10 ** (18 - ERC20(token).decimals()))
                 / (unadjustedRate * (10 ** (36 - ERC20(token).decimals())));
             amounts[i] = amount;
         }
         return amounts;
     }
 
-    function test__SetWeightToZero() public {
-        PoolEstimator est = new PoolEstimator(address(pool));
+    function test__poolRemoveToken() public {
+        deal(address(token0), jake, 100_000_000 * 1e8);
+        deal(address(token1), jake, 100_000_000 * 1e18);
+        deal(address(token2), jake, 100_000_000 * 1e8);
+        deal(address(token3), jake, 100_000_000 * 1e8);
 
-        uint256 numTokens = pool.numTokens();
-        uint256 total = 1000 * 1e18;
-        uint256[] memory amounts = _calculateSeedAmounts(total, 18);
+        uint256[] memory amounts = new uint256[](4);
+        uint256 total = 5000 * 1e18;
 
-        // vm.startPrank(alice);
-        // uint256 lp1 = pool.addLiquidity(amounts, 0, alice);
-        // vm.stopPrank();
+        for (uint256 i = 0; i < 4; i++) {
+            address token = tokens[i];
+            address rateProvider = rateProviders[i];
 
-        uint256[] memory newWeights = new uint256[](4);
-        newWeights[0] = 40 * PRECISION / 100;
-        newWeights[1] = 30 * PRECISION / 100;
-        newWeights[2] = 299 * PRECISION / 1000;
-        newWeights[3] = 1 * PRECISION / 1000;
+            vm.startPrank(jake);
+            require(ERC20(token).approve(address(pool), type(uint256).max), "could not approve");
+            vm.stopPrank();
 
-        uint256 newAmplification = 600 * PRECISION;
+            uint256 unadjustedRate = IRateProvider(rateProvider).rate(token);
+            uint256 amount = (total * weights[i] * 1e18) / (unadjustedRate * (10 ** (36 - ERC20(token).decimals())));
+            amounts[i] = amount;
+        }
+        amounts[3] = 0;
 
         vm.startPrank(jake);
-        pool.setRamp(newAmplification, newWeights, 7 days, vm.getBlockTimestamp());
+        uint256 lpAdded = pool.addLiquidity(amounts, 0, jake);
         vm.stopPrank();
 
-        uint256 ts = vm.getBlockTimestamp();
+        uint256 cachedToken3Balance = token3.balanceOf(jake);
+        uint256 cachedPoolTokenSupply = poolToken.totalSupply();
+        uint256 cachedPoolSupply = pool.supply();
 
-        vm.startPrank(alice);
-        uint256 seedLpRedeemed = vault.redeem(vault.balanceOf(alice), alice, alice);
+        uint256[] memory newWeights = new uint256[](pool.numTokens() - 1);
+
+        // new composition
+        newWeights[0] = 20 * PRECISION / 100;
+        newWeights[1] = 30 * PRECISION / 100;
+        newWeights[2] = 50 * PRECISION / 100;
+
+        // new amplification
+        uint256 ampl = pool.amplification();
+
+        uint256 lpBalanceBeforeRemoving = poolToken.balanceOf(jake);
+
+        vm.startPrank(jake);
+        poolToken.approve(address(pool), type(uint256).max);
+        pool.removeToken(3, lpAdded, ampl, newWeights, 7 days);
         vm.stopPrank();
 
-        uint256 token3BalanceInPool = ERC20(pool.tokens(3)).balanceOf(address(pool));
-        uint256 token3WorthInPool = token3BalanceInPool * rp.rate(pool.tokens(3)) / PRECISION;
-
-        uint256 totalLpOfAlice = poolToken.balanceOf(alice);
-        uint256 tokenOut1;
-        uint256 tokenOut2;
-        uint256 tokenOut3;
-
-        uint256 lpToRemove = totalLpOfAlice * 30 / 100;
-        uint256[] memory newLp = new uint256[](4);
-        newLp[0] = _getTokenAmountFromLp(lpToRemove, 0);
-
-        uint256 ss1 = vm.snapshotState();
-        vm.startPrank(alice);
-        console.log("token3 weight in the pool now:", _getWeightOfToken(3));
-        // vm.expectRevert(bytes4(keccak256(bytes("Pool__NoConvergence()"))));
-        tokenOut1 = pool.removeLiquiditySingle(3, lpToRemove, 0, alice);
-        pool.addLiquidity(newLp, 0, alice);
-        vm.stopPrank();
-        assert(token3BalanceInPool > tokenOut1);
-        console.log("First attempt -> 0 day");
-        console.log("pool token3 balance before:", token3BalanceInPool);
-        console.log("pool token3 balance removed:", tokenOut1);
-        console.log("pool token3 balance now:", ERC20(pool.tokens(3)).balanceOf(address(pool)));
-        console.log("token3 weight in the pool now:", _getWeightOfToken(3));
-        assert(ERC20(pool.tokens(3)).balanceOf(address(pool)) + tokenOut1 == token3BalanceInPool);
-        vm.revertToState(ss1);
-
-        console.log("////////////////////////////////////////////////////////");
-
-        // halfway ramp
-        vm.warp(ts + 7 days / 2);
-
-        uint256 ss2 = vm.snapshotState();
-        vm.startPrank(alice);
-        console.log("token3 weight in the pool now:", _getWeightOfToken(3));
-        // vm.expectRevert(bytes4(keccak256(bytes("Pool__NoConvergence()"))));
-        tokenOut2 = pool.removeLiquiditySingle(3, lpToRemove, 0, alice);
-        pool.addLiquidity(newLp, 0, alice);
-        vm.stopPrank();
-        assert(token3BalanceInPool > tokenOut2);
-        console.log("Second attempt -> 3.5 day");
-        console.log("pool token3 balance before:", token3BalanceInPool);
-        console.log("pool token3 balance removed:", tokenOut2);
-        console.log("pool token3 balance now:", ERC20(pool.tokens(3)).balanceOf(address(pool)));
-        console.log("token3 weight in the pool now:", _getWeightOfToken(3));
-        assert(ERC20(pool.tokens(3)).balanceOf(address(pool)) + tokenOut2 == token3BalanceInPool);
-        vm.revertToState(ss2);
-
-        console.log("////////////////////////////////////////////////////////");
-
-        // halfway ramp
-        vm.warp(ts + 7 days);
-
-        uint256 ss3 = vm.snapshotState();
-        vm.startPrank(alice);
-        console.log("token3 weight in the pool now:", _getWeightOfToken(3));
-        // vm.expectRevert(bytes4(keccak256(bytes("Pool__NoConvergence()"))));
-        tokenOut3 = pool.removeLiquiditySingle(3, lpToRemove, 0, alice);
-        pool.addLiquidity(newLp, 0, alice);
-        vm.stopPrank();
-        assert(token3BalanceInPool > tokenOut2);
-        console.log("Third attempt -> 7 day");
-        console.log("pool token3 balance before:", token3BalanceInPool);
-        console.log("pool token3 balance removed:", tokenOut3);
-        console.log("pool token3 balance now:", ERC20(pool.tokens(3)).balanceOf(address(pool)));
-        console.log("token3 weight in the pool now:", _getWeightOfToken(3));
-        assert(ERC20(pool.tokens(3)).balanceOf(address(pool)) + tokenOut3 == token3BalanceInPool);
-        vm.revertToState(ss3);
-    }
-
-    function _getWeightOfToken(uint256 token) internal returns (uint256) {
-        uint256 numTokens = pool.numTokens();
-        uint256 totalVb;
-        for (uint256 i = 0; i < numTokens; i++) {
-            totalVb = totalVb + pool.virtualBalance(i);
+        uint256 weightSum = 0;
+        for (uint256 i = 0; i < pool.numTokens(); i++) {
+            (uint256 weight,,,) = pool.weight(i);
+            weightSum += weight;
         }
 
-        return pool.virtualBalance(token) * PRECISION / totalVb;
-    }
+        uint256 lpBalanceAfterRemoving = poolToken.balanceOf(jake);
+        assert(lpBalanceBeforeRemoving > lpBalanceAfterRemoving);
+        uint256 lpSpentByJake = lpBalanceBeforeRemoving - lpBalanceAfterRemoving;
+        uint256 token3Balance = token3.balanceOf(jake);
 
-    function _getTokenAmountFromLp(uint256 lpAmount, uint256 token) internal returns (uint256) {
-        uint256 rate = IRateProvider(pool.rateProviders(token)).rate(pool.tokens(token));
-        uint256 unadjustedAmount = lpAmount * PRECISION / rate;
+        assert(pool.supply() < cachedPoolSupply);
+        assert(poolToken.totalSupply() < cachedPoolTokenSupply);
+        assert(token3Balance > cachedToken3Balance);
+        uint256 changeInToken3Balance = token3Balance - cachedToken3Balance;
+        uint256 token3WorthReceived = changeInToken3Balance * rp.rate(address(token3)) / 1e8;
 
-        return unadjustedAmount * PRECISION / (10 ** (36 - ERC20(pool.tokens(token)).decimals()));
+        if (lpSpentByJake > token3WorthReceived) {
+            assert((lpSpentByJake - token3WorthReceived) * 1e18 / lpSpentByJake < 99 * 1e18 / 100);
+        }
+
+        assert(pool.supply() == poolToken.totalSupply());
+        assertEq(weightSum, PRECISION, "Weight sum mismatch");
+
+        uint256[] memory newAmounts = new uint256[](3);
+        address[] memory newTokens = new address[](3);
+        address[] memory newRateProviders = new address[](3);
+
+        for (uint256 t = 0; t < 3; t++) {
+            newTokens[t] = tokens[t];
+            newRateProviders[t] = rateProviders[t];
+            newAmounts[t] = ERC20(tokens[t]).balanceOf(address(pool));
+            deal(tokens[t], jake, newAmounts[t]);
+        }
+
+        // deploying new pool with just 3 tokens
+        vm.startPrank(jake);
+        PoolToken poolToken2 = new PoolToken("**", "**", 19, jake);
+        PoolV2 pool2 = new PoolV2(address(poolToken2), ampl, newTokens, newRateProviders, newWeights, jake);
+        Vault vault2 = new Vault(address(poolToken2), "**", "**", 100, 100, jake, jake, jake);
+
+        poolToken2.setPool(address(pool2));
+        pool2.setVaultAddress(address(vault2));
+        pool2.setSwapFeeRate(3 * PRECISION / 10_000);
+        vault2.setProtocolFeeAddress(jake);
+        vault2.setDepositFeeInBps(100);
+
+        for (uint256 t = 0; t < 3; t++) {
+            SafeTransferLib.safeApprove(newTokens[t], address(pool2), newAmounts[t]);
+        }
+        uint256 lpAmount2 = pool2.addLiquidity(newAmounts, 0, jake);
+        SafeTransferLib.safeApprove(address(poolToken2), address(vault2), lpAmount2);
+        vault2.deposit(lpAmount2, jake);
+
+        assert(pool.supply() == pool2.supply());
+        assert(poolToken.totalSupply() == poolToken2.totalSupply());
     }
 }

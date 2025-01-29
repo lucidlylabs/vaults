@@ -11,7 +11,7 @@ import {IRateProvider} from "./RateProvider/IRateProvider.sol";
 import {LogExpMath} from "./BalancerLibCode/LogExpMath.sol";
 import {PoolToken} from "./PoolToken.sol";
 
-contract Pool is OwnableRoles, ReentrancyGuard {
+contract PoolV2 is OwnableRoles, ReentrancyGuard {
     uint256 constant PRECISION = 1_000_000_000_000_000_000;
     uint256 constant MAX_NUM_TOKENS = 32;
     uint256 constant ALL_TOKENS_FLAG =
@@ -93,6 +93,7 @@ contract Pool is OwnableRoles, ReentrancyGuard {
     event StopRamp();
     event SetStaking(address vaultAddress);
     event SetGuardian(address indexed caller, address guardian);
+    event TokenRemoved(uint256 indexed tokenIndex, address indexed token);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                             AUTH                           */
@@ -965,6 +966,100 @@ contract Pool is OwnableRoles, ReentrancyGuard {
         if (_lpAmount < minLpAmount_) revert Pool__InvalidParams();
         PoolToken(tokenAddress).mint(receiver_, _lpAmount);
         emit AddToken(_prevNumTokens, token_, rateProvider_, _rate, weight_, amount_);
+    }
+
+    /// @notice remove a token from the pool
+    /// @dev can only be called when no ramp is currently active
+    /// @param tokenIndex_ index of the token to be removed in the pool
+    /// @param lpAmount_ lpAmount to be burnt to compensate for the removed token amount
+    /// @param amplification_ proposed new amplification
+    /// @param newWeights_ proposed new weights
+    /// @param duration_ duration of the ramp in seconds
+    function removeToken(
+        uint256 tokenIndex_,
+        uint256 lpAmount_,
+        uint256 amplification_,
+        uint256[] calldata newWeights_,
+        uint256 duration_
+    ) external onlyPoolManager {
+        uint256 _numTokens = numTokens;
+
+        if (_numTokens <= 2) revert Pool__MustBeInitiatedWithMoreThanOneToken();
+        if (paused) revert Pool__Paused();
+        if (amplification_ == 0) revert Pool__ZeroAmount();
+        if (rampLastTime != 0) revert Pool__RampActive();
+        if (tokenIndex_ >= numTokens) revert Pool__IndexOutOfBounds();
+        require(newWeights_.length == _numTokens - 1, "Length of newWeights_ array must be equal to numTokens - 1");
+
+        rampLastTime = block.timestamp;
+        rampStopTime = block.timestamp + duration_;
+
+        address removedAddress = tokens[tokenIndex_];
+        uint256 _newNumTokens = _numTokens - 1;
+
+        // Reconfigure tokens and weights
+        address[] memory _newTokens = new address[](_newNumTokens);
+        uint256[] memory _newRateMultipliers = new uint256[](_newNumTokens);
+        address[] memory _newRateProviders = new address[](_newNumTokens);
+        uint256[] memory _newPackedVirtualBalances = new uint256[](_newNumTokens);
+
+        uint256 weightSum = 0;
+        uint256 newIndex = 0;
+        for (uint256 t = 0; t < _newNumTokens; t++) {
+            if (t == tokenIndex_) continue;
+            _newTokens[newIndex] = tokens[t];
+            _newRateMultipliers[newIndex] = rateMultipliers[t];
+            _newRateProviders[newIndex] = rateProviders[t];
+
+            (uint256 _virtualBalance, uint256 _rate,) = _unpackVirtualBalance(packedVirtualBalances[t]);
+            uint256 _newWeight = newWeights_[t];
+            require(_newWeight > 0 && _newWeight <= PRECISION, "Proposed weight out of range");
+            weightSum += _newWeight;
+
+            _newPackedVirtualBalances[newIndex] =
+                _packVirtualBalance(_virtualBalance, _rate, _packWeight(_newWeight, _newWeight, PRECISION, PRECISION));
+            newIndex++;
+        }
+
+        require(weightSum == PRECISION, "Weight sum mismatch");
+
+        // Update pool state
+        for (uint256 t = 0; t < MAX_NUM_TOKENS; t++) {
+            if (t == _newNumTokens) break;
+
+            tokens[t] = _newTokens[t];
+            rateMultipliers[t] = _newRateMultipliers[t];
+            rateProviders[t] = _newRateProviders[t];
+            packedVirtualBalances[t] = _newPackedVirtualBalances[t];
+        }
+        numTokens--;
+
+        // Recalculate balances and update supply
+        (uint256 vbProd, uint256 vbSum) = _calculateVirtualBalanceProdSum();
+        uint256 prevSupply = supply;
+        uint256 newSupply;
+        (newSupply, vbProd) = _calculateSupply(numTokens, vbSum, amplification_, vbProd, vbSum, true);
+
+        uint256 changeInSupply = prevSupply - newSupply;
+        require(newSupply <= prevSupply, "newSupply > prevSupply");
+        require(lpAmount_ >= changeInSupply, "lpAmount < changeInSupply");
+
+        // refund excess lpAmount_ if added
+        uint256 _lpSurplus = lpAmount_ - changeInSupply;
+        if (_lpSurplus > 0) {
+            PoolToken(tokenAddress).mint(msg.sender, _lpSurplus);
+        }
+
+        amplification = amplification_;
+        packedPoolVirtualBalance = _packPoolVirtualBalance(vbProd, vbSum);
+
+        // burn LP tokens and transfer removed token
+        PoolToken(tokenAddress).burn(msg.sender, lpAmount_);
+        supply = newSupply;
+        uint256 balance = ERC20(removedAddress).balanceOf(address(this));
+        SafeTransferLib.safeTransfer(removedAddress, msg.sender, balance);
+
+        emit TokenRemoved(tokenIndex_, removedAddress);
     }
 
     /// @notice rescue tokens from this contract
