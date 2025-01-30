@@ -7,12 +7,12 @@
 [submodule "lib/erc4626-tests"]
 	path = lib/erc4626-tests
 	url = https://github.com/a16z/erc4626-tests
-[submodule "lib/solady"]
-	path = lib/solady
-	url = https://github.com/Vectorized/solady
 [submodule "lib/openzeppelin-contracts"]
 	path = lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
 [submodule "lib/weiroll-foundry"]
 	path = lib/weiroll-foundry
 	url = https://github.com/dantop114/weiroll-foundry
+[submodule "lib/solady"]
+	path = lib/solady
+	url = https://github.com/Vectorized/solady
