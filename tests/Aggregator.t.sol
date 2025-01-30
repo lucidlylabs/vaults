@@ -135,10 +135,6 @@ contract AggregatorTest is Test {
 
             uint256 unadjustedRate = IRateProvider(rateProvider).rate(token); // price of the asset scaled to 18 precision
 
-            // uint256 amount =
-            //     (total * weights[i] * 1e18 * 1e10) / (unadjustedRate * (10 ** (36 - ERC20(token).decimals())));
-            // amounts[i] = amount;
-
             amounts[i] = FixedPointMathLib.divUp(
                 FixedPointMathLib.mulDiv(total, weights[i], unadjustedRate), (10 ** (18 - ERC20(token).decimals()))
             );

@@ -2,17 +2,12 @@
 pragma solidity >=0.8.20;
 
 import {ERC20} from "solady/tokens/ERC20.sol";
-import {LibSort} from "solady/utils/LibSort.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 
 import {PoolV2} from "../src/Poolv2.sol";
-import {IMagPie} from "../src/IMagPie.sol";
 import {PoolToken} from "../src/PoolToken.sol";
 import {Vault} from "../src/Vault.sol";
-import {MockToken} from "../src/Mocks/MockToken.sol";
-import {MockRateProvider} from "../src/Mocks/MockRateProvider.sol";
-import {LogExpMath} from "../src/BalancerLibCode/LogExpMath.sol";
 import {IRateProvider} from "../src/RateProvider/IRateProvider.sol";
 
 contract Aggregator {
@@ -180,5 +175,37 @@ contract Aggregator {
         uint256 lpReceived = PoolV2(poolAddress).addLiquidity(addLiquidityAmounts, minLpAmount, address(this));
         PoolToken(PoolV2(poolAddress).tokenAddress()).approve(vaultAddress, lpReceived);
         shares = Vault(vaultAddress).deposit(lpReceived, receiver);
+    }
+
+    function executeRedeemAndZap(
+        address poolAddress,
+        uint256 sharesToBurn,
+        uint256 tokenOut,
+        uint256 minAmountOut,
+        address zapTokenAddress,
+        address routerAddress,
+        bytes calldata data,
+        address receiver
+    ) external returns (uint256 zapTokenAmount) {
+        require(zapTokenAddress != address(0), "Invalid zapTokenAddress.");
+
+        Vault vault = Vault(PoolV2(poolAddress).vaultAddress());
+        uint256 lpRedeemed = vault.redeem(sharesToBurn, address(this), msg.sender);
+        uint256 tokenAmount =
+            PoolV2(poolAddress).removeLiquiditySingle(tokenOut, lpRedeemed, minAmountOut, address(this));
+
+        address token = PoolV2(poolAddress).tokens(tokenOut);
+
+        uint256 currentAllowance = ERC20(token).allowance(address(this), routerAddress);
+        if (currentAllowance > 0) {
+            SafeTransferLib.safeApprove(token, routerAddress, 0);
+        }
+        SafeTransferLib.safeApprove(token, routerAddress, tokenAmount);
+
+        uint256 cachedBalance = ERC20(zapTokenAddress).balanceOf(address(this));
+        (bool success,) = routerAddress.call(data);
+        require(success, "Router call failed");
+        zapTokenAmount = ERC20(zapTokenAddress).balanceOf(address(this)) - cachedBalance;
+        SafeTransferLib.safeTransfer(zapTokenAddress, receiver, zapTokenAmount);
     }
 }

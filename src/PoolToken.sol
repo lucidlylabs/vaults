@@ -105,6 +105,7 @@ contract PoolToken is ERC20, Ownable {
      * @param fee_ The new performance fee, capped at 8000 basis points.
      */
     function setPerformanceFeeInBps(uint256 fee_) public onlyOwner {
+        if (performanceFeeRecipient == address(0)) revert Token__RecipientCannotBeZeroAddress();
         if (fee_ > 8000) revert Token__PerformanceFeeCannotExceed8000bps();
         performanceFeeInBps = fee_;
         emit PerformanceFeeSet(fee_);
