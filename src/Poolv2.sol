@@ -52,6 +52,10 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard {
     error Pool__SlippageLimitExceeded();
     error Pool__NeedToDepositAtleastOneToken();
     error Pool__InitialDepositAmountMustBeNonZero();
+    error Pool__NewWeightsLengthMismatch();
+    error Pool__ProposedWeightOutOfRange();
+    error Pool__NewSupplyIsGreaterThanPrevSupply();
+    error Pool__LpAmountSuppliedIsLessThanChangeInSupply();
     error Pool__TokenDecimalCannotBeZero();
     error Pool__AmountsMustBeNonZero();
     error Pool__WeightOutOfBounds();
@@ -989,7 +993,7 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard {
         if (amplification_ == 0) revert Pool__ZeroAmount();
         if (rampLastTime != 0) revert Pool__RampActive();
         if (tokenIndex_ >= numTokens) revert Pool__IndexOutOfBounds();
-        require(newWeights_.length == _numTokens - 1, "Length of newWeights_ array must be equal to numTokens - 1");
+        if (newWeights_.length != _numTokens - 1) revert Pool__NewWeightsLengthMismatch();
 
         rampLastTime = block.timestamp;
         rampStopTime = block.timestamp + duration_;
@@ -997,7 +1001,6 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard {
         address removedAddress = tokens[tokenIndex_];
         uint256 _newNumTokens = _numTokens - 1;
 
-        // Reconfigure tokens and weights
         address[] memory _newTokens = new address[](_newNumTokens);
         uint256[] memory _newRateMultipliers = new uint256[](_newNumTokens);
         address[] memory _newRateProviders = new address[](_newNumTokens);
@@ -1013,7 +1016,8 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard {
 
             (uint256 _virtualBalance, uint256 _rate,) = _unpackVirtualBalance(packedVirtualBalances[t]);
             uint256 _newWeight = newWeights_[t];
-            require(_newWeight > 0 && _newWeight <= PRECISION, "Proposed weight out of range");
+            if (_newWeight == 0 || _newWeight > PRECISION) revert Pool__ProposedWeightOutOfRange();
+
             weightSum += _newWeight;
 
             _newPackedVirtualBalances[newIndex] =
@@ -1021,9 +1025,8 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard {
             newIndex++;
         }
 
-        require(weightSum == PRECISION, "Weight sum mismatch");
+        if (weightSum != PRECISION) revert Pool__WeightsDoNotAddUp();
 
-        // Update pool state
         for (uint256 t = 0; t < MAX_NUM_TOKENS; t++) {
             if (t == _newNumTokens) break;
 
@@ -1034,17 +1037,16 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard {
         }
         numTokens--;
 
-        // Recalculate balances and update supply
         (uint256 vbProd, uint256 vbSum) = _calculateVirtualBalanceProdSum();
         uint256 prevSupply = supply;
         uint256 newSupply;
         (newSupply, vbProd) = _calculateSupply(numTokens, vbSum, amplification_, vbProd, vbSum, true);
 
         uint256 changeInSupply = prevSupply - newSupply;
-        require(newSupply <= prevSupply, "newSupply > prevSupply");
-        require(lpAmount_ >= changeInSupply, "lpAmount < changeInSupply");
 
-        // refund excess lpAmount_ if added
+        if (newSupply > prevSupply) revert Pool__NewSupplyIsGreaterThanPrevSupply();
+        if (lpAmount_ < changeInSupply) revert Pool__LpAmountSuppliedIsLessThanChangeInSupply();
+
         uint256 _lpSurplus = lpAmount_ - changeInSupply;
         if (_lpSurplus > 0) {
             PoolToken(tokenAddress).mint(msg.sender, _lpSurplus);
@@ -1053,7 +1055,6 @@ contract PoolV2 is OwnableRoles, ReentrancyGuard {
         amplification = amplification_;
         packedPoolVirtualBalance = _packPoolVirtualBalance(vbProd, vbSum);
 
-        // burn LP tokens and transfer removed token
         PoolToken(tokenAddress).burn(msg.sender, lpAmount_);
         supply = newSupply;
         uint256 balance = ERC20(removedAddress).balanceOf(address(this));
