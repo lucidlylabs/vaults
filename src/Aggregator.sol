@@ -153,8 +153,8 @@ contract Aggregator {
         address routerAddress,
         bytes calldata data
     ) external returns (uint256 shares) {
-        require(zapTokenAddress != address(0), "Invalid zapTokenAddress.");
-        require(zapTokenAmount != 0, "Cannot allow 0 amount to zap in.");
+        require(zapTokenAddress != address(0), "invalid zapTokenAddress.");
+        require(zapTokenAmount != 0, "cannot allow 0 amount to zap in.");
 
         SafeTransferLib.safeTransferFrom(zapTokenAddress, msg.sender, address(this), zapTokenAmount);
         SafeTransferLib.safeApprove(zapTokenAddress, routerAddress, zapTokenAmount);
@@ -187,7 +187,7 @@ contract Aggregator {
         bytes calldata data,
         address receiver
     ) external returns (uint256 zapTokenAmount) {
-        require(zapTokenAddress != address(0), "Invalid zapTokenAddress.");
+        require(zapTokenAddress != address(0), "invalid zapTokenAddress.");
 
         Vault vault = Vault(PoolV2(poolAddress).vaultAddress());
         uint256 lpRedeemed = vault.redeem(sharesToBurn, address(this), msg.sender);
@@ -204,7 +204,7 @@ contract Aggregator {
 
         uint256 cachedBalance = ERC20(zapTokenAddress).balanceOf(address(this));
         (bool success,) = routerAddress.call(data);
-        require(success, "Router call failed");
+        require(success, "router call failed");
         zapTokenAmount = ERC20(zapTokenAddress).balanceOf(address(this)) - cachedBalance;
         SafeTransferLib.safeTransfer(zapTokenAddress, receiver, zapTokenAmount);
     }
