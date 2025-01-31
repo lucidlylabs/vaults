@@ -2,9 +2,10 @@
 pragma solidity ^0.8.20;
 
 import {Ownable} from "../lib/solady/src/auth/Ownable.sol";
-import {IERC20, ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import {IERC20Metadata, IERC20, ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {ERC4626} from "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {ERC4626Fees} from "../lib/openzeppelin-contracts/contracts/mocks/docs/ERC4626Fees.sol";
+import {FixedPointMathLib} from "../lib/solady/src/utils/FixedPointMathLib.sol";
 
 contract Vault is ERC4626Fees, Ownable {
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -13,7 +14,6 @@ contract Vault is ERC4626Fees, Ownable {
 
     error Vault__ProtocolFeeAddressCannotBeZero();
     error Vault__ProtocolFeeCannotExceed500Bps();
-    error Vault__PerformanceFeeCannotExceed500bps();
     error Vault__RecipientCannotBeZeroAddress();
     error Vault__DepositCapMAxxedOut();
     error Vault__NewCapCannotBeLessThanTotalAssets();
@@ -35,6 +35,12 @@ contract Vault is ERC4626Fees, Ownable {
     /*                           STATE                            */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
+    /// @dev name of the vault token
+    string private _name;
+
+    /// @dev symbol of the vault token
+    string private _symbol;
+
     /// @dev performance fee in basis points
     uint256 public performanceFeeInBps;
 
@@ -43,9 +49,6 @@ contract Vault is ERC4626Fees, Ownable {
 
     /// @dev deposit fee
     uint256 public depositFeeInBps;
-
-    /// @dev highest value of the vault's yield
-    uint256 public highWaterMark;
 
     /// @dev total assets deposited by users. (totalAssets() - yield)
     uint256 public totalUserDeposits;
@@ -65,9 +68,6 @@ contract Vault is ERC4626Fees, Ownable {
     /// @dev management fees accrued since last claim
     uint256 public accruedManagementFees;
 
-    /// @dev performace fees accrued since last claim
-    uint256 public accruedPerformanceFees;
-
     /// @dev deposit cap for the vault
     uint256 public depositCap;
 
@@ -81,6 +81,8 @@ contract Vault is ERC4626Fees, Ownable {
         address managementFeeRecipient_,
         address owner_
     ) ERC20(name_, symbol_) ERC4626(IERC20(underlying_)) {
+        _name = name_;
+        _symbol = symbol_;
         managementFeeInBps = managementFeeInBps_;
         depositFeeInBps = depositFeeInBps_;
 
@@ -89,7 +91,6 @@ contract Vault is ERC4626Fees, Ownable {
 
         _setOwner(owner_);
         lastFeeAccrual = block.timestamp;
-        highWaterMark = totalAssets();
 
         depositCap = type(uint256).max;
     }
@@ -101,9 +102,30 @@ contract Vault is ERC4626Fees, Ownable {
         uint256 elapsedTime = block.timestamp - lastFeeAccrual;
         if (elapsedTime == 0 || managementFeeInBps == 0) return;
 
-        uint256 feeAmount = (totalUserDeposits * elapsedTime * managementFeeInBps) / 10_000 / 365 days;
+        // uint256 feeAmount = (totalUserDeposits * elapsedTime * managementFeeInBps) / 10_000 / 365 days;
+        uint256 feeAmount =
+            FixedPointMathLib.mulDivUp(totalUserDeposits * managementFeeInBps, elapsedTime, 365 days * 10_000);
         accruedManagementFees = feeAmount > 0 ? accruedManagementFees + feeAmount : accruedManagementFees;
         lastFeeAccrual = block.timestamp;
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                        ERC20 FUNCTIONS                     */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /**
+     * @dev Returns the name of the token.
+     */
+    function name() public view virtual override (ERC20, IERC20Metadata) returns (string memory) {
+        return _name;
+    }
+
+    /**
+     * @dev Returns the symbol of the token, usually a shorter version of the
+     * name.
+     */
+    function symbol() public view virtual override (ERC20, IERC20Metadata) returns (string memory) {
+        return _symbol;
     }
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -132,6 +154,22 @@ contract Vault is ERC4626Fees, Ownable {
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                       ADMIN FUNCTIONS                      */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /**
+     * @notice Changes the name of the token.
+     * @param newName The new name for the token.
+     */
+    function updateName(string memory newName) public onlyOwner {
+        _name = newName;
+    }
+    /**
+     * @notice Changes the symbol of the token.
+     * @param newSymbol The new symbol for the token.
+     */
+
+    function updateSymbol(string memory newSymbol) public onlyOwner {
+        _symbol = newSymbol;
+    }
 
     /**
      * @notice Sets the recipient for deposit fees.

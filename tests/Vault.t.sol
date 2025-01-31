@@ -81,6 +81,32 @@ contract VaultTest is Test {
         assertApproxEqAbs(vault.accruedManagementFees(), expectedFee, 1e15, "Management fee not accrued correctly");
     }
 
+    function testNameChange() public {
+        string memory oldName = vault.name();
+        vault.updateName("helloToken");
+
+        assertNotEq(oldName, vault.name(), "name did not change");
+        assertEq(vault.name(), "helloToken", "name changed");
+
+        oldName = vault.name();
+        vault.updateName("newhelloToken");
+        assertNotEq(oldName, vault.name(), "name did not change");
+        assertEq(vault.name(), "newhelloToken", "name changed");
+    }
+
+    function testSymbolChange() public {
+        string memory oldName = vault.symbol();
+        vault.updateSymbol("helloToken");
+
+        assertNotEq(oldName, vault.symbol(), "name did not change");
+        assertEq(vault.symbol(), "helloToken", "name changed");
+
+        oldName = vault.symbol();
+        vault.updateSymbol("newhelloToken");
+        assertNotEq(oldName, vault.symbol(), "name did not change");
+        assertEq(vault.symbol(), "newhelloToken", "name changed");
+    }
+
     // function testPerformanceFeeAccounting() public {
     //     uint256 initialTime = vm.getBlockTimestamp();
 

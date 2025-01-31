@@ -195,11 +195,6 @@ contract Aggregator {
             PoolV2(poolAddress).removeLiquiditySingle(tokenOut, lpRedeemed, minAmountOut, address(this));
 
         address token = PoolV2(poolAddress).tokens(tokenOut);
-
-        uint256 currentAllowance = ERC20(token).allowance(address(this), routerAddress);
-        if (currentAllowance > 0) {
-            SafeTransferLib.safeApprove(token, routerAddress, 0);
-        }
         SafeTransferLib.safeApprove(token, routerAddress, tokenAmount);
 
         uint256 cachedBalance = ERC20(zapTokenAddress).balanceOf(address(this));
