@@ -2,9 +2,7 @@
 pragma solidity >0.8.0;
 
 import {IRateProvider} from "../IRateProvider.sol";
-import {FixedPointMathLib} from "../../../lib/solady/src/utils/FixedPointMathLib.sol";
-import {AggregatorV3Interface, RedstoneDataFeedLib} from "../libraries/RedstoneDataFeedLib.sol";
-import "./IERC4626RateProvider.sol";
+import {IERC4626RateProvider} from "./IERC4626RateProvider.sol";
 
 contract AnglesLiquidVaultRateProvider is IRateProvider {
     error RateProvider__InvalidParam();

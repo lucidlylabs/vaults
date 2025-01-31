@@ -9,6 +9,7 @@ import {EthenaVaultV2RateProvider} from "../src/RateProvider/ethena-usde/EthenaV
 import {PufEthVaultV2RateProvider} from "../src/RateProvider/puffer-pufeth/PufEthVaultV2RateProvider.sol";
 import {StakeeaseVaultRateProvider} from "../src/RateProvider/stakeease-sxeth/StakeeaseVaultRateProvider.sol";
 import {IRateProvider} from "../src/RateProvider/IRateProvider.sol";
+import {AnglesLiquidVaultRateProvider} from "../src/RateProvider/angles-liquid/AnglesLiquidVaultRateProvider.sol";
 
 // pufEth vault assets
 address constant PUFETH = 0xD9A442856C234a39a81a089C06451EBAa4306a72;
@@ -88,13 +89,18 @@ address constant GAUNTLET_USDC_PRIME = 0xdd0f28e19C1780eb6396170735D45153D261490
 //     address private constant SWBTC = 0x8DB2350D78aBc13f5673A411D4700BCF87864dDE;
 //     address private constant GAUNTLET_WBTC_CORE = 0x443df5eEE3196e9b2Dd77CaBd3eA76C3dee8f9b2;
 //
+//     address immutable WRAPPED_ANGLES_S = 0xfA85Fe5A8F5560e9039C04f2b0a90dE1415aBD70;
+//     address immutable WRAPPED_S = 0x039e2fB66102314Ce7b64Ce5Ce3E5183bc94aD38;
+//     address immutable WRAPPED_ANGLES_S_RATE_PROVIDER = 0x2d087C0999223997b77cc33BE5E7E8eC79396cea;
+//
 //     IRateProvider rateProvider;
 //     IRateProvider sxethRateProvider;
 //     IRateProvider swbtcRateProvider;
+//     IRateProvider anglesRateProvider;
 //
 //     function setUp() public {
-//         vm.createSelectFork(vm.rpcUrl("https://eth.merkle.io"));
-//         rateProvider = new UsdeVaultRateProvider();
+//         vm.createSelectFork(vm.rpcUrl("http://127.0.0.1:8545"));
+//         rateProvider = new AnglesLiquidVaultRateProvider();
 //         sxethRateProvider = new StakeeaseVaultRateProvider();
 //     }
 //
@@ -135,6 +141,16 @@ address constant GAUNTLET_USDC_PRIME = 0xdd0f28e19C1780eb6396170735D45153D261490
 //
 //     function testSxeth1() public view {
 //         uint256 rate = sxethRateProvider.rate(SXETHWETH_CURVE);
+//         console.log(rate);
+//     }
+//
+//     function testSPrice() public view {
+//         uint256 rate = rateProvider.rate(WRAPPED_S);
+//         console.log(rate);
+//     }
+//
+//     function testWrappedSPrice() public view {
+//         uint256 rate = rateProvider.rate(WRAPPED_ANGLES_S);
 //         console.log(rate);
 //     }
 // }
