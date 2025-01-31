@@ -13,9 +13,7 @@ contract DeployManualRegistry is Script {
         vm.startBroadcast(adminPk);
         res = new ManualRegistry();
 
-        res.addPoolAddress(0x82Fbc848eeCeC6D0a2eBdC8A9420826AE8d2952d, "ETH", "v1");
-        res.addPoolAddress(0x001DF2Cc0c3433beAd3703575F13841d2EBC078f, "USD", "v1");
-        res.addPoolAddress(0x188B679c0bAf56b9838584AfaC82D713e68112fC, "ETH", "v1");
+        res.addPoolAddress(0x4bF2D4868e7c8514093a4D548B8EDF5ae4ce9Eea, "S", "v2");
 
         vm.stopBroadcast();
     }

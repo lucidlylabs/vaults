@@ -13,7 +13,7 @@ contract ManualRegistry is Ownable {
     using EnumerableSetLib for EnumerableSetLib.AddressSet;
 
     struct PoolInfo {
-        string assetType; // USD, ETH, BTC
+        string assetType; // USD, ETH, BTC, S
         string version; // v1, v2, v3 ..
     }
 
