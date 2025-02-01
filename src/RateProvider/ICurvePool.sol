@@ -2,5 +2,5 @@
 pragma solidity ^0.8.24;
 
 interface ICurvePool {
-    function lp_price() external view returns (uint256);
+    function price_oracle() external view returns (uint256);
 }
