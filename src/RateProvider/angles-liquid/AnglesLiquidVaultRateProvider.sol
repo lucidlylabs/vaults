@@ -27,7 +27,7 @@ contract AnglesLiquidVaultRateProvider is IRateProvider {
         } else if (token == WRAPPED_ANGLES_S) {
             return IERC4626RateProvider(WRAPPED_ANGLES_S_RATE_PROVIDER).getRate();
         } else if (token == SPECTRA_LP_WRAPPED_ANGLES_S) {
-            uint256 lpPrice = ICurvePool(SPECTRA_LP_WRAPPED_ANGLES_S_POOL).price_oracle();
+            uint256 lpPrice = ICurvePool(SPECTRA_LP_WRAPPED_ANGLES_S_POOL).lp_price();
             uint256 ptPrice = ISpectraPrincipalToken(SPECTRA_PT_WRAPPED_ANGLES_S).convertToUnderlying(1e18);
             return lpPrice.mulWad(ptPrice);
         } else {
