@@ -6,7 +6,6 @@ import {IERC4626RateProvider} from "./IERC4626RateProvider.sol";
 import {ICurvePool} from "../ICurvePool.sol";
 import {ISpectraPrincipalToken} from "../ISpectraPrincipalToken.sol";
 import {FixedPointMathLib} from "../../../lib/solady/src/utils/FixedPointMathLib.sol";
-import {console} from "../../../lib/forge-std/src/console.sol";
 
 contract AnglesLiquidVaultRateProvider is IRateProvider {
     error RateProvider__InvalidParam();
