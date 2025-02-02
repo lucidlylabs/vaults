@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >0.8.0;
 
+import {FixedPointMathLib} from "../../../lib/solady/src/utils/FixedPointMathLib.sol";
 import {IRateProvider} from "../IRateProvider.sol";
 import {IERC4626RateProvider} from "./IERC4626RateProvider.sol";
 import {ICurvePool} from "../ICurvePool.sol";
 import {ISpectraPrincipalToken} from "../ISpectraPrincipalToken.sol";
-import {FixedPointMathLib} from "../../../lib/solady/src/utils/FixedPointMathLib.sol";
+import {IComposableStablePool} from "../IComposableStablePool.sol";
 
 contract AnglesLiquidVaultRateProvider is IRateProvider {
     error RateProvider__InvalidParam();
@@ -19,6 +20,7 @@ contract AnglesLiquidVaultRateProvider is IRateProvider {
     address immutable SPECTRA_LP_WRAPPED_ANGLES_S = 0xEc81ee88906ED712deA0a17A3Cd8A869eBFA89A0;
     address immutable SPECTRA_LP_WRAPPED_ANGLES_S_POOL = 0x2386ebDE944e723Ffd9066bE23709444342d2685;
     address immutable SPECTRA_PT_WRAPPED_ANGLES_S = 0x032d91C8D301F31025DCeC41008C643e626e80AB;
+    address immutable BEETS_POOL = 0x374641076B68371e69D03C417DAc3E5F236c32FA; // stS/wS pool
 
     /// @dev hardcode price of WRAPPED_S to PRECISION
     function rate(address token) external view returns (uint256) {
@@ -30,6 +32,8 @@ contract AnglesLiquidVaultRateProvider is IRateProvider {
             uint256 lpPrice = ICurvePool(SPECTRA_LP_WRAPPED_ANGLES_S_POOL).lp_price();
             uint256 ptPrice = ISpectraPrincipalToken(SPECTRA_PT_WRAPPED_ANGLES_S).convertToUnderlying(1e18);
             return lpPrice.mulWad(ptPrice);
+        } else if (token == BEETS_POOL) {
+            return IComposableStablePool(BEETS_POOL).getRate();
         } else {
             revert RateProvider__InvalidParam();
         }
