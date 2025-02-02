@@ -93,6 +93,7 @@ address constant GAUNTLET_USDC_PRIME = 0xdd0f28e19C1780eb6396170735D45153D261490
 //     address immutable WRAPPED_S = 0x039e2fB66102314Ce7b64Ce5Ce3E5183bc94aD38;
 //     address immutable WRAPPED_ANGLES_S_RATE_PROVIDER = 0x2d087C0999223997b77cc33BE5E7E8eC79396cea;
 //     address immutable SPECTRA_LP_WRAPPED_ANGLES_S = 0xEc81ee88906ED712deA0a17A3Cd8A869eBFA89A0;
+//     address immutable SILO_BORROWABLE_WS_DEPOSIT_TOKEN = 0x47d8490Be37ADC7Af053322d6d779153689E13C1;
 
 //     IRateProvider rateProvider;
 //     IRateProvider sxethRateProvider;
@@ -100,7 +101,7 @@ address constant GAUNTLET_USDC_PRIME = 0xdd0f28e19C1780eb6396170735D45153D261490
 //     IRateProvider anglesRateProvider;
 
 //     function setUp() public {
-//         vm.createSelectFork(vm.rpcUrl("http://127.0.0.1:8545"));
+//         vm.createSelectFork(vm.rpcUrl("https://rpc.ankr.com/sonic_mainnet"));
 //         rateProvider = new AnglesLiquidVaultRateProvider();
 //         sxethRateProvider = new StakeeaseVaultRateProvider();
 //     }
@@ -155,8 +156,13 @@ address constant GAUNTLET_USDC_PRIME = 0xdd0f28e19C1780eb6396170735D45153D261490
     //     console.log(rate);
     // }
 
-//     function testLPWrappedSPrice() public view {
-//         uint256 rate = rateProvider.rate(SPECTRA_LP_WRAPPED_ANGLES_S);
+    // function testLPWrappedSPrice() public view {
+    //     uint256 rate = rateProvider.rate(SPECTRA_LP_WRAPPED_ANGLES_S);
+    //     console.log(rate);
+    // }
+
+//     function testSiloPrice() public view {
+//         uint256 rate = rateProvider.rate(SILO_BORROWABLE_WS_DEPOSIT_TOKEN);
 //         console.log(rate);
 //     }
 // }
