@@ -103,8 +103,8 @@ contract PoolOwnerTest is Test {
         vm.stopPrank();
 
         vm.startPrank(jake);
-        vault.setProtocolFeeAddress(jake);
-        vault.setDepositFeeInBps(100); // 100 bps
+        vault.setEntryFeeAddress(jake);
+        vault.setEntryFeeInBps(100); // 100 bps
         vm.stopPrank();
 
         // mint tokens to first lp

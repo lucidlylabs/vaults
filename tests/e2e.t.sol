@@ -85,13 +85,13 @@ contract End2End is Test {
         poolToken.setPool(address(pool));
         poolToken.setVaultAddress(address(vault));
 
-        poolToken.setPerformanceFeeRecipient(jake);
-        poolToken.setPerformanceFeeInBps(100);
+        vault.setPerformanceFeeRecipient(jake);
+        vault.setPerformanceFeeInBps(100);
 
         pool.setVaultAddress(address(vault));
         pool.setSwapFeeRate(3 * PRECISION / 10_000); // 3 bps
-        vault.setProtocolFeeAddress(jake);
-        vault.setDepositFeeInBps(100); // 100 bps
+        vault.setEntryFeeAddress(jake);
+        vault.setEntryFeeInBps(100); // 100 bps
         vm.stopPrank();
 
         // mint tokens to first lp

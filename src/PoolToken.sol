@@ -16,6 +16,8 @@ contract PoolToken is ERC20, Ownable {
     error Token__PerformanceFeeCannotExceed8000bps();
     error Token__PoolAddressAlreadySet();
     error Token__VaultAddressAlreadySet();
+    error Token__PerformanceFeeRecipientCanOnlyBeChangedByVault();
+    error Token__PerformanceFeeCanOnlyBeChangedByVault();
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                           EVENTS                           */
@@ -30,11 +32,14 @@ contract PoolToken is ERC20, Ownable {
     string internal _symbol;
     uint8 internal _decimals;
 
-    address public poolAddress;
-    address public vaultAddress;
-
     bool private poolAddressSet = false;
     bool private vaultAddressSet = false;
+
+    /// @dev pool address of this token
+    address public poolAddress;
+
+    /// @dev the erc4626 vault for this token
+    address public vaultAddress;
 
     /// @dev performance fee in basis points
     uint256 public performanceFeeInBps;
@@ -104,7 +109,8 @@ contract PoolToken is ERC20, Ownable {
      * @notice Sets the performance fee in basis points.
      * @param fee_ The new performance fee, capped at 8000 basis points.
      */
-    function setPerformanceFeeInBps(uint256 fee_) public onlyOwner {
+    function setPerformanceFeeInBps(uint256 fee_) public {
+        if (msg.sender != vaultAddress) revert Token__PerformanceFeeCanOnlyBeChangedByVault();
         if (performanceFeeRecipient == address(0)) revert Token__RecipientCannotBeZeroAddress();
         if (fee_ > 8000) revert Token__PerformanceFeeCannotExceed8000bps();
         performanceFeeInBps = fee_;
@@ -115,7 +121,8 @@ contract PoolToken is ERC20, Ownable {
      * @notice Sets the recipient for performance fees.
      * @param recipient_ The address to receive performance fees.
      */
-    function setPerformanceFeeRecipient(address recipient_) public onlyOwner {
+    function setPerformanceFeeRecipient(address recipient_) public {
+        if (msg.sender != vaultAddress) revert Token__PerformanceFeeRecipientCanOnlyBeChangedByVault();
         if (recipient_ == address(0)) revert Token__RecipientCannotBeZeroAddress();
         performanceFeeRecipient = recipient_;
         emit PerformanceFeeRecipientSet(recipient_);

@@ -102,8 +102,8 @@ contract PoolRemoveToken is Test {
         poolToken.setPool(address(pool));
         pool.setVaultAddress(address(vault));
         pool.setSwapFeeRate(3 * PRECISION / 10_000); // 3 bps
-        vault.setProtocolFeeAddress(jake);
-        vault.setDepositFeeInBps(100); // 100 bps
+        vault.setEntryFeeAddress(jake);
+        vault.setEntryFeeInBps(100); // 100 bps
         vm.stopPrank();
 
         // mint tokens to first lp
@@ -249,8 +249,8 @@ contract PoolRemoveToken is Test {
         poolToken2.setPool(address(pool2));
         pool2.setVaultAddress(address(vault2));
         pool2.setSwapFeeRate(3 * PRECISION / 10_000);
-        vault2.setProtocolFeeAddress(jake);
-        vault2.setDepositFeeInBps(100);
+        vault2.setEntryFeeAddress(jake);
+        vault2.setEntryFeeInBps(100);
 
         for (uint256 t = 0; t < 3; t++) {
             SafeTransferLib.safeApprove(newTokens[t], address(pool2), newAmounts[t]);

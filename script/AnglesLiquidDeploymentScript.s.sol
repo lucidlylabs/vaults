@@ -61,14 +61,14 @@ contract AnglesLiquidVaultDeploymentScript is Script {
         poolToken.setPool(address(pool));
         poolToken.setVaultAddress(address(vault));
 
-        poolToken.setPerformanceFeeRecipient(admin);
-        poolToken.setPerformanceFeeInBps(1000);
+        vault.setPerformanceFeeRecipient(admin);
+        vault.setPerformanceFeeInBps(1000);
 
         pool.setVaultAddress(address(vault));
         pool.setSwapFeeRate(3 * PRECISION / 10_000);
 
-        vault.setProtocolFeeAddress(admin);
-        vault.setDepositFeeInBps(10);
+        vault.setEntryFeeAddress(admin);
+        vault.setEntryFeeInBps(10);
 
         vm.stopBroadcast();
     }

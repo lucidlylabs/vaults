@@ -6,7 +6,6 @@ import {ERC20} from "../lib/solady/src/tokens/ERC20.sol";
 import {ReentrancyGuard} from "../lib/solady/src/utils/ReentrancyGuard.sol";
 import {FixedPointMathLib} from "../lib/solady/src/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "../lib/solady/src/utils/SafeTransferLib.sol";
-
 import {IRateProvider} from "./RateProvider/IRateProvider.sol";
 import {LogExpMath} from "./BalancerLibCode/LogExpMath.sol";
 import {PoolToken} from "./PoolToken.sol";

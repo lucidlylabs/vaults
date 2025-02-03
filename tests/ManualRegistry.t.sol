@@ -111,8 +111,8 @@ contract ManualRegistryTest is Test {
         poolToken0.setPool(address(pool0));
         pool0.setVaultAddress(address(vault0));
         pool0.setSwapFeeRate(3 * PRECISION / 10_000); // 3 bps
-        vault0.setProtocolFeeAddress(jake);
-        vault0.setDepositFeeInBps(100); // 100 bps
+        vault0.setEntryFeeAddress(jake);
+        vault0.setEntryFeeInBps(100); // 100 bps
         vm.stopPrank();
 
         // mint tokens to first lp
@@ -185,8 +185,8 @@ contract ManualRegistryTest is Test {
         poolToken1.setPool(address(pool1));
         pool1.setVaultAddress(address(vault1));
         pool1.setSwapFeeRate(3 * PRECISION / 10_000); // 3 bps
-        vault1.setProtocolFeeAddress(jake);
-        vault1.setDepositFeeInBps(100); // 100 bps
+        vault1.setEntryFeeAddress(jake);
+        vault1.setEntryFeeInBps(100); // 100 bps
         vm.stopPrank();
 
         // mint tokens to first lp

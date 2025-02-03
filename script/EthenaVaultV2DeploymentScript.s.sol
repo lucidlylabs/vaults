@@ -70,8 +70,8 @@ contract EthenaVaultV2DeploymentScript is Script {
         poolToken.setPool(address(pool));
         pool.setVaultAddress(address(vault));
         pool.setSwapFeeRate(3 * PRECISION / 10_000); // 3bps
-        vault.setDepositFeeInBps(100);
-        vault.setProtocolFeeAddress(admin);
+        vault.setEntryFeeInBps(100);
+        vault.setEntryFeeAddress(admin);
 
         vm.stopBroadcast();
     }

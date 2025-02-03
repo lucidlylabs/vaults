@@ -86,8 +86,8 @@ contract AggregatorTest is Test {
         poolToken.setPool(address(pool));
         pool.setVaultAddress(address(vault));
         pool.setSwapFeeRate(3 * PRECISION / 10_000); // 3 bps
-        vault.setProtocolFeeAddress(jake);
-        vault.setDepositFeeInBps(100); // 100 bps
+        vault.setEntryFeeAddress(jake);
+        vault.setEntryFeeInBps(100); // 100 bps
         vm.stopPrank();
 
         // mint tokens to first lp

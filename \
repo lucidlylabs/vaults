@@ -10,6 +10,8 @@ import {FixedPointMathLib} from "../lib/solady/src/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "../lib/solady/src/utils/SafeTransferLib.sol";
 import {PoolToken} from "./PoolToken.sol";
 
+import {console} from "../lib/forge-std/src/console.sol";
+
 contract Vault is ERC4626Fees, Ownable {
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                           ERRORS                           */
@@ -18,20 +20,18 @@ contract Vault is ERC4626Fees, Ownable {
     error Vault__ProtocolFeeAddressCannotBeZero();
     error Vault__ProtocolFeeCannotExceed500Bps();
     error Vault__RecipientCannotBeZeroAddress();
-    error Vault__DepositCapMaxxedOut();
+    error Vault__DepositCapMAxxedOut();
     error Vault__NewCapCannotBeLessThanTotalAssets();
     error Vault__ManagementFeeCannotExceed500Bps();
     error Vault__ManagementFeeRecipientCannotBeZeroAddress();
-    error Vault__DepositAmountTooLess();
-    error Vault__InsufficientAssetsAfterFees();
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                           EVENTS                           */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     event CapUpdated(uint256 indexed newCap);
-    event EntryFeeAddressSet(address indexed entryFeeAddress);
-    event EntryFeeSet(uint256 indexed entryFee);
+    event ProtocolFeeAddressSet(address indexed protocolFeeAddress);
+    event DepositFeeSet(uint256 indexed depositFee);
     event ManagementFeeSet(uint256 indexed managementFeeInBps);
     event ManagementFeeRecipientSet(address indexed managementFeeRecipient);
     event ClaimedFees(uint256 managementFees);
@@ -52,16 +52,22 @@ contract Vault is ERC4626Fees, Ownable {
     uint256 public managementFeeInBps;
 
     /// @dev deposit fee
-    uint256 public entryFeeInBps;
+    uint256 public depositFeeInBps;
+
+    /// @dev total assets deposited by users. (totalAssets() - yield)
+    uint256 public totalUserDeposits;
 
     /// @dev management fee recipient
     address public managementFeeRecipient;
 
     /// @dev fee address
-    address public entryFeeRecipient;
+    address public depositFeeRecipient;
 
     /// @dev timestamp of the last management fee accrual
     uint256 public lastFeeAccrual;
+
+    /// @dev management fees accrued since last claim
+    uint256 public accruedManagementFees;
 
     /// @dev deposit cap for the vault
     uint256 public depositCap;
@@ -71,34 +77,23 @@ contract Vault is ERC4626Fees, Ownable {
         string memory name_,
         string memory symbol_,
         uint256 managementFeeInBps_,
-        uint256 entryFeeInBps_,
-        address entryFeeRecipient_,
+        uint256 depositFeeInBps_,
+        address depositFeeRecipient_,
         address managementFeeRecipient_,
         address owner_
     ) ERC20(name_, symbol_) ERC4626(IERC20(underlying_)) {
         _name = name_;
         _symbol = symbol_;
         managementFeeInBps = managementFeeInBps_;
-        entryFeeInBps = entryFeeInBps_;
+        depositFeeInBps = depositFeeInBps_;
 
         managementFeeRecipient = managementFeeRecipient_;
-        entryFeeRecipient = entryFeeRecipient_;
+        depositFeeRecipient = depositFeeRecipient_;
 
         _setOwner(owner_);
         lastFeeAccrual = block.timestamp;
 
         depositCap = type(uint256).max;
-    }
-
-    /**
-     * @notice Getter function to view accrued managementFees since last claim
-     */
-    function accruedManagementFees() public view returns (uint256) {
-        uint256 elapsedTime = block.timestamp - lastFeeAccrual;
-        if (elapsedTime == 0 || managementFeeInBps == 0) return 0;
-        uint256 feeAmount =
-            FixedPointMathLib.mulDivUp(totalAssets() * managementFeeInBps, elapsedTime, 365 days * 10_000);
-        return feeAmount;
     }
 
     /**
@@ -109,13 +104,19 @@ contract Vault is ERC4626Fees, Ownable {
         if (elapsedTime == 0 || managementFeeInBps == 0) return;
 
         uint256 feeAmount =
-            FixedPointMathLib.mulDivUp(totalAssets() * managementFeeInBps, elapsedTime, 365 days * 10_000);
+            FixedPointMathLib.mulDivUp(totalUserDeposits * managementFeeInBps, elapsedTime, 365 days * 10_000);
 
         if (feeAmount > 0) {
-            uint256 sharesToMint = convertToShares(feeAmount);
-            _mint(managementFeeRecipient, sharesToMint);
+            if (totalUserDeposits >= feeAmount) {
+                console.log("totalUserDeposits:", totalUserDeposits);
+                console.log("feeAmount:", feeAmount);
+                totalUserDeposits -= feeAmount;
+                accruedManagementFees += feeAmount;
+            } else {
+                accruedManagementFees += totalUserDeposits;
+                totalUserDeposits = 0;
+            }
             lastFeeAccrual = block.timestamp;
-            emit ClaimedFees(feeAmount);
         }
     }
 
@@ -144,19 +145,13 @@ contract Vault is ERC4626Fees, Ownable {
 
     function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal override {
         if (totalAssets() + assets > depositCap) {
-            revert Vault__DepositCapMaxxedOut();
+            revert Vault__DepositCapMAxxedOut();
         }
 
         _accrueManagementFee();
-
-        uint256 entryFee = Math.mulDiv(assets, entryFeeInBps, entryFeeInBps + 10_000, Math.Rounding.Ceil);
-        uint256 effectiveDeposit = assets - entryFee;
-
-        if (effectiveDeposit > 0) {
-            super._deposit(caller, receiver, assets, shares);
-        } else {
-            revert Vault__DepositAmountTooLess();
-        }
+        uint256 depositFee = Math.mulDiv(assets, depositFeeInBps, depositFeeInBps + 10_000, Math.Rounding.Ceil);
+        totalUserDeposits += assets - depositFee;
+        super._deposit(caller, receiver, assets, shares);
     }
 
     function _withdraw(address caller, address receiver, address owner, uint256 assets, uint256 shares)
@@ -164,6 +159,11 @@ contract Vault is ERC4626Fees, Ownable {
         override
     {
         _accrueManagementFee();
+
+        console.log("total user deposits:", totalUserDeposits);
+        console.log("assets:", assets);
+
+        totalUserDeposits -= assets;
         super._withdraw(caller, receiver, owner, assets, shares);
     }
 
@@ -193,20 +193,20 @@ contract Vault is ERC4626Fees, Ownable {
      * @notice Sets the recipient for deposit fees.
      * @param address_ The address to receive deposit fees.
      */
-    function setEntryFeeAddress(address address_) public onlyOwner {
+    function setProtocolFeeAddress(address address_) public onlyOwner {
         if (address_ == address(0)) revert Vault__ProtocolFeeAddressCannotBeZero();
-        entryFeeRecipient = address_;
-        emit EntryFeeAddressSet(address_);
+        depositFeeRecipient = address_;
+        emit ProtocolFeeAddressSet(address_);
     }
 
     /**
      * @notice Sets the deposit fee in basis points.
      * @param fee_ The new deposit fee, capped at 500 basis points.
      */
-    function setEntryFeeInBps(uint256 fee_) public onlyOwner {
+    function setDepositFeeInBps(uint256 fee_) public onlyOwner {
         if (fee_ > 500) revert Vault__ProtocolFeeCannotExceed500Bps();
-        entryFeeInBps = fee_;
-        emit EntryFeeSet(fee_);
+        depositFeeInBps = fee_;
+        emit DepositFeeSet(fee_);
     }
 
     /**
@@ -262,11 +262,11 @@ contract Vault is ERC4626Fees, Ownable {
     }
 
     function _entryFeeBasisPoints() internal view virtual override returns (uint256) {
-        return entryFeeInBps;
+        return depositFeeInBps;
     }
 
     function _entryFeeRecipient() internal view virtual override returns (address) {
-        return entryFeeRecipient;
+        return depositFeeRecipient;
     }
 
     /**
@@ -281,14 +281,29 @@ contract Vault is ERC4626Fees, Ownable {
         emit CapUpdated(newCap_);
     }
 
-    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
-    /*                          HARVEST FEES                      */
-    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-
     /**
-     * @notice Manually accrues fees for management
+     * @notice Manually accrues fees for management and performance.
      */
     function harvestFees() external {
         _accrueManagementFee();
+    }
+
+    /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
+    /*                       CLAIM FEE LOGIC                      */
+    /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
+
+    /**
+     * @notice Claims accrued management and performance fees.
+     */
+    function claimFees() external onlyOwner {
+        uint256 managementFeesToClaim = accruedManagementFees;
+
+        if (managementFeesToClaim > 0) {
+            SafeTransferLib.safeTransfer(asset(), managementFeeRecipient, managementFeesToClaim);
+            totalUserDeposits -= managementFeesToClaim;
+            accruedManagementFees = 0;
+        }
+
+        emit ClaimedFees(managementFeesToClaim);
     }
 }
