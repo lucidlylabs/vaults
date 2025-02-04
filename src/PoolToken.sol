@@ -13,7 +13,6 @@ contract PoolToken is ERC20, Ownable {
     error Token__PoolAddressCannotBeZero();
     error Token__VaultAddressCannotBeZero();
     error Token__RecipientCannotBeZeroAddress();
-    error Token__PerformanceFeeCannotExceed8000bps();
     error Token__PoolAddressAlreadySet();
     error Token__VaultAddressAlreadySet();
     error Token__PerformanceFeeRecipientCanOnlyBeChangedByVault();
@@ -89,6 +88,10 @@ contract PoolToken is ERC20, Ownable {
         _burn(from_, amount_);
     }
 
+    /**
+     * @notice Sets the pool address for this pool token, can only be called once by the owner
+     * @param poolAddress_ pool address
+     */
     function setPool(address poolAddress_) public onlyOwner {
         if (poolAddressSet) revert Token__PoolAddressAlreadySet();
         if (poolAddress_ == address(0)) revert Token__PoolAddressCannotBeZero();
@@ -97,6 +100,10 @@ contract PoolToken is ERC20, Ownable {
         emit PoolAddressSet(poolAddress_);
     }
 
+    /**
+     * @notice Sets the vault address for this pool token, can only be called once by the owner
+     * @param vaultAddress_ vault address
+     */
     function setVaultAddress(address vaultAddress_) public onlyOwner {
         if (vaultAddressSet) revert Token__VaultAddressAlreadySet();
         if (vaultAddress_ == address(0)) revert Token__VaultAddressCannotBeZero();
@@ -107,12 +114,11 @@ contract PoolToken is ERC20, Ownable {
 
     /**
      * @notice Sets the performance fee in basis points.
-     * @param fee_ The new performance fee, capped at 8000 basis points.
+     * @param fee_ The new performance fee, capped at 6000 basis points.
      */
     function setPerformanceFeeInBps(uint256 fee_) public {
         if (msg.sender != vaultAddress) revert Token__PerformanceFeeCanOnlyBeChangedByVault();
         if (performanceFeeRecipient == address(0)) revert Token__RecipientCannotBeZeroAddress();
-        if (fee_ > 8000) revert Token__PerformanceFeeCannotExceed8000bps();
         performanceFeeInBps = fee_;
         emit PerformanceFeeSet(fee_);
     }

@@ -360,4 +360,24 @@ contract AggregatorTest is Test {
         assert(aliceShares - vault.balanceOf(alice) == aliceLpWorth);
         assert(amountOutEstimated == amountOutActual);
     }
+
+    function test__MainnetDeposit() public {
+        vm.createSelectFork(vm.rpcUrl("http://127.0.0.1:8545"));
+
+        address user = 0x1b514df3413DA9931eB31f2Ab72e32c0A507Cad5;
+
+        address[] memory tokens0 = new address[](2);
+        tokens0[0] = 0x039e2fB66102314Ce7b64Ce5Ce3E5183bc94aD38;
+        tokens0[1] = 0xfA85Fe5A8F5560e9039C04f2b0a90dE1415aBD70;
+
+        uint256[] memory amounts0 = new uint256[](2);
+        amounts0[0] = ERC20(tokens0[0]).balanceOf(user);
+        amounts0[1] = ERC20(tokens0[1]).balanceOf(user);
+
+        vm.startPrank(user);
+        uint256 shares = Aggregator(0x8417bdEF7FE41743Cd26E591f1E4f0D19C00552f).deposit(
+            tokens0, amounts0, user, 0, 0x033f4A109Fc11a11d3AFB92dCA0AB6C30BB3c722
+        );
+        vm.stopPrank();
+    }
 }

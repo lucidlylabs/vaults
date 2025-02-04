@@ -16,6 +16,7 @@ import {AnglesLiquidVaultRateProvider} from "../src/RateProvider/angles-liquid/A
 import {MockRateProvider} from "../src/Mocks/MockRateProvider.sol";
 import {LogExpMath} from "../src/BalancerLibCode/LogExpMath.sol";
 import {Aggregator} from "../src/Aggregator.sol";
+import {FeeSplitter} from "../src/utils/FeeSplitter.sol";
 
 contract AnglesLiquidVaultDeploymentScript is Script {
     PoolToken poolToken;
@@ -52,23 +53,27 @@ contract AnglesLiquidVaultDeploymentScript is Script {
         rateProviders[0] = address(rateProvider);
         rateProviders[1] = address(rateProvider);
 
-        uint256 amplification = 1000e18;
+        uint256 amplification = 10_000e18;
 
         poolToken = new PoolToken("AnglesLiquid-PT", "anLPT", 18, admin);
         pool = new PoolV2(address(poolToken), amplification, tokens, rateProviders, weights, admin);
-        vault = new Vault(address(poolToken), "Angles Liquid", "LiquidS", 100, 100, admin, admin, admin);
+        vault = new Vault(address(poolToken), "Angles Liquid", "lanS", 100, 100, admin, admin, admin);
 
         poolToken.setPool(address(pool));
         poolToken.setVaultAddress(address(vault));
-
-        vault.setPerformanceFeeRecipient(admin);
-        vault.setPerformanceFeeInBps(1000);
 
         pool.setVaultAddress(address(vault));
         pool.setSwapFeeRate(3 * PRECISION / 10_000);
 
         vault.setEntryFeeAddress(admin);
         vault.setEntryFeeInBps(10);
+
+        FeeSplitter splitter = new FeeSplitter(
+            address(poolToken), 0x1b514df3413DA9931eB31f2Ab72e32c0A507Cad5, 0x7e431e5fF0EE4cAD26347C0674aFa9c30502b535
+        );
+
+        vault.setPerformanceFeeRecipient(address(splitter));
+        vault.setPerformanceFeeInBps(1000);
 
         vm.stopBroadcast();
     }

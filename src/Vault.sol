@@ -21,6 +21,7 @@ contract Vault is ERC4626Fees, Ownable {
     error Vault__DepositCapMaxxedOut();
     error Vault__NewCapCannotBeLessThanTotalAssets();
     error Vault__ManagementFeeCannotExceed500Bps();
+    error Vault__PerformanceFeeCannotExceed6000Bps();
     error Vault__ManagementFeeRecipientCannotBeZeroAddress();
     error Vault__DepositAmountTooLess();
     error Vault__InsufficientAssetsAfterFees();
@@ -210,15 +211,6 @@ contract Vault is ERC4626Fees, Ownable {
     }
 
     /**
-     * @notice Sets the performance fee in basis points.
-     * @param fee_ The new performance fee, capped at 500 basis points.
-     */
-    function setPerformanceFeeInBps(uint256 fee_) public onlyOwner {
-        if (fee_ > 500) revert Vault__ManagementFeeCannotExceed500Bps();
-        PoolToken(asset()).setPerformanceFeeInBps(fee_);
-    }
-
-    /**
      * @notice performance fee in basis points
      */
     function performanceFeeInBps() public view returns (uint256) {
@@ -230,6 +222,15 @@ contract Vault is ERC4626Fees, Ownable {
      */
     function performanceFeeRecipient() public view returns (address) {
         return PoolToken(asset()).performanceFeeRecipient();
+    }
+
+    /**
+     * @notice Sets the performance fee in basis points.
+     * @param fee_ The new performance fee, capped at 6000 basis points.
+     */
+    function setPerformanceFeeInBps(uint256 fee_) public onlyOwner {
+        if (fee_ > 6000) revert Vault__PerformanceFeeCannotExceed6000Bps();
+        PoolToken(asset()).setPerformanceFeeInBps(fee_);
     }
 
     /**
