@@ -47,26 +47,3 @@ contract ZapAndDeposit is Script {
         vm.stopBroadcast();
     }
 }
-
-contract TestMagpieCall is Script {
-    Aggregator agg = Aggregator(0xFB644ceA02886dDc1b56d6D9FECE811C941d41CD);
-    address private constant router = 0xba7bAC71a8Ee550d89B827FE6d67bc3dCA07b104;
-
-    function run() public {
-        uint256 adminPk = vm.envUint("PRIVATE_KEY_1");
-        address admin = vm.addr(adminPk);
-        vm.startBroadcast(adminPk);
-
-        require(
-            MockToken(0xE5DA20F15420aD15DE0fa650600aFc998bbE3955).approve(router, type(uint256).max),
-            "could approve router as spender"
-        );
-
-        bytes memory routerCalldata =
-            hex"73fc445700000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000139011c00201b514df3413da9931eb31f2ab72e32c0a507cad5e5da20f15420ad15de0fa650600afc998bbe395529219dd400f2bf60e5a23d13be72b486d4038894e000d4e800d9f800ddc000dfcdcef9143ec4be47b37f3bbd9b5977053388ed33cd15b5bed2f915a4bafd8d6e039c99085e9eae96570ab91a8980af4f4f520b83371116314e760504bcfd314e1c0000e06790e096e809dcadf800c00de0b6b3a7640000060300deba12222222228d8ba445958a75a0704d566bf2c802005c0200eb0300de52bbbe29f8e0e06790e098df49944d79b4032e244063ebfe413a3179d6b2e7000100000000000000000084f8c001010803010c0603008a02004803008a03008a03010e040113002003008a02005c0200700300de03013303008a02000000e700eb000001000000ff010800000000200135016200eb00000000000000";
-
-        (bool success, bytes memory data) = router.call(routerCalldata);
-
-        vm.stopBroadcast();
-    }
-}

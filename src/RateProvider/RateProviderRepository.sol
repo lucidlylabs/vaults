@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import {EnumerableSetLib} from "solady/utils/EnumerableSetLib.sol";
 import {Ownable} from "../../lib/solady/src/auth/Ownable.sol";
 import {Vault} from "../Vault.sol";
-import {Pool} from "../Pool.sol";
+import {PoolV2} from "../Poolv2.sol";
 import {RateProvider} from "./RateProvider.sol";
 
 import {ERC20} from "../../lib/solady/src/tokens/ERC20.sol";
@@ -17,7 +17,7 @@ contract RateProviderRepository is Ownable {
     Vault public immutable vault;
 
     /// @notice the underlying pool
-    Pool public immutable pool;
+    PoolV2 public immutable pool;
 
     ///  @notice the base asset rates are provided in.
     ERC20 public immutable base;
@@ -42,17 +42,20 @@ contract RateProviderRepository is Ownable {
 
     constructor(address vault_, address pool_, address base_) {
         vault = Vault(vault_);
-        pool = Pool(pool_);
+        pool = PoolV2(pool_);
         base = ERC20(base_);
         decimals = ERC20(vault_).decimals();
     }
 
+    /// @notice returns price of one vault share in terms of base
     function getVaultSharePrice() external view returns (uint256) {
         return vault.previewRedeem(1e18);
     }
 
-    function isTokenSupported(address token_) external view returns (bool) {
-        return tokenAddresses.contains(token_);
+    /// @notice returns if a token is whitelisted in this address
+    /// @param tokenAddress address of the ERC20
+    function isTokenSupported(address tokenAddress) external view returns (bool) {
+        return tokenAddresses.contains(tokenAddress);
     }
 
     function addToken(address tokenAddress, bool isPeggedToBase, address rateProviderAddress) external onlyOwner {
@@ -71,6 +74,9 @@ contract RateProviderRepository is Ownable {
             RateProviderData({isPeggedToBase: false, rateProvider: RateProvider(address(0))});
     }
 
+    /// @notice getter function for the rateProvider address.
+    /// @dev the rateProvider returns a value where quote = base
+    /// @param tokenAddress address of ERC20
     function getRateProvider(address tokenAddress) external view returns (address) {
         if (!tokenAddresses.contains(tokenAddress)) revert RateProviderRepository__TokenNotSupported();
 
@@ -78,6 +84,11 @@ contract RateProviderRepository is Ownable {
         return address(rateProvider);
     }
 
+    /// @notice setter function for an ERC20 rateProviderData
+    /// @dev the ERC20 must be registered in this contract
+    /// @param tokenAddress ERC20 address
+    /// @param isPeggedToBase boolean to store if the token is pegged to the base asset
+    /// @param rateProviderAddress address of the rateProvider
     function setRateProvider(address tokenAddress, bool isPeggedToBase, address rateProviderAddress)
         external
         onlyOwner
@@ -88,6 +99,8 @@ contract RateProviderRepository is Ownable {
             RateProviderData({isPeggedToBase: isPeggedToBase, rateProvider: RateProvider(rateProviderAddress)});
     }
 
+    /// @notice returns the rate in terms of base
+    /// @param tokenAddress ERC20 address
     function getRate(address tokenAddress) external view returns (uint256) {
         if (!tokenAddresses.contains(tokenAddress)) revert RateProviderRepository__TokenNotSupported();
 

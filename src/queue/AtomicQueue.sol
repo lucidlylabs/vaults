@@ -37,6 +37,8 @@ contract AtomicQueue is OwnableRoles, ReentrancyGuard {
         uint96 offerAmount;
         /// @dev bool to check if this order is being fullfilled
         bool inSolve;
+        /// @dev 0 for deposit, 1 for withdrawal
+        uint8 requestType;
     }
 
     /// @notice Used in `viewSolveMetaData` helper function to return data in
@@ -105,7 +107,9 @@ contract AtomicQueue is OwnableRoles, ReentrancyGuard {
     error AtomicQueue__SafeRequestOfferAmountZero();
     error AtomicQueue__SafeRequestDiscountTooLarge();
     error AtomicQueue__SafeRequestOfferMismatch();
+    error AtomicQueue__SafeRequestWantMismatch();
     error AtomicQueue__SafeRequestCannotCastToUint88();
+    error AtomicQueue__InvalidRequestType();
     error AtomicQueue__Paused();
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -119,6 +123,7 @@ contract AtomicQueue is OwnableRoles, ReentrancyGuard {
         uint256 amount,
         uint256 deadline,
         uint256 minPrice,
+        uint8 requestType,
         uint256 timestamp
     );
 
@@ -206,11 +211,7 @@ contract AtomicQueue is OwnableRoles, ReentrancyGuard {
     /// @param offer the offer asset
     /// @param want the want assset
     /// @param userRequest new request
-    function updateAtomicRequest(ERC20 offer, ERC20 want, AtomicRequest memory userRequest)
-        external
-        nonReentrant
-        onlyOwner
-    {
+    function updateAtomicRequest(ERC20 offer, ERC20 want, AtomicRequest memory userRequest) external nonReentrant {
         _updateAtomicRequest(offer, want, userRequest);
     }
 
@@ -246,11 +247,22 @@ contract AtomicQueue is OwnableRoles, ReentrancyGuard {
         if (userRequest.offerAmount == 0) revert AtomicQueue__SafeRequestOfferAmountZero();
         if (discount > MAX_DISCOUNT) revert AtomicQueue__SafeRequestDiscountTooLarge();
 
-        if (address(offer) != address(rateProviderRepo.vault())) revert AtomicQueue__SafeRequestOfferMismatch();
-        uint256 safeRate = rateProviderRepo.getVaultSharePriceInAsset(address(want));
-        uint256 safeAtomicPrice = FixedPointMathLib.mulDiv(safeRate, 1e6 - discount, 1e6);
-        if (safeAtomicPrice > type(uint8).max) revert AtomicQueue__SafeRequestCannotCastToUint88();
-        userRequest.atomicPrice = uint88(safeAtomicPrice);
+        if (userRequest.requestType == 0) {
+            if (address(want) != address(rateProviderRepo.vault())) revert AtomicQueue__SafeRequestWantMismatch();
+            uint256 safeRate = rateProviderRepo.getAssetPriceInVaultShare(address(offer));
+            uint256 safeAtomicPrice = FixedPointMathLib.mulDiv(safeRate, 1e16 - discount, 1e16);
+            if (safeAtomicPrice > type(uint256).max) revert AtomicQueue__SafeRequestCannotCastToUint88();
+            userRequest.atomicPrice = uint88(safeAtomicPrice);
+        } else if (userRequest.requestType == 1) {
+            if (address(offer) != address(rateProviderRepo.vault())) revert AtomicQueue__SafeRequestOfferMismatch();
+            uint256 safeRate = rateProviderRepo.getVaultSharePriceInAsset(address(want));
+            uint256 safeAtomicPrice = FixedPointMathLib.mulDiv(safeRate, 1e6 - discount, 1e6);
+            if (safeAtomicPrice > type(uint8).max) revert AtomicQueue__SafeRequestCannotCastToUint88();
+            userRequest.atomicPrice = uint88(safeAtomicPrice);
+        } else {
+            revert AtomicQueue__InvalidRequestType();
+        }
+
         _updateAtomicRequest(offer, want, userRequest);
     }
 
@@ -463,6 +475,7 @@ contract AtomicQueue is OwnableRoles, ReentrancyGuard {
         request.deadline = userRequest.deadline;
         request.atomicPrice = userRequest.atomicPrice;
         request.offerAmount = userRequest.offerAmount;
+        request.requestType - userRequest.requestType;
 
         // Emit full amount user has.
         emit AtomicRequestUpdated(
@@ -472,6 +485,7 @@ contract AtomicQueue is OwnableRoles, ReentrancyGuard {
             userRequest.offerAmount,
             userRequest.deadline,
             userRequest.atomicPrice,
+            userRequest.requestType,
             block.timestamp
         );
     }
