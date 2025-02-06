@@ -75,6 +75,8 @@ contract BPTWrapper is ERC4626, ReentrancyGuard {
     }
 
     function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal override {
+        compoundRewards();
+        
         super._deposit(caller, receiver, assets, shares);
         poolToken.approve(address(gauge), assets);
         gauge.deposit(assets);
