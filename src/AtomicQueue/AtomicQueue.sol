@@ -123,7 +123,7 @@ contract AtomicQueue is OwnableRoles, ReentrancyGuard {
         uint256 amount,
         uint256 deadline,
         uint256 minPrice,
-        uint8 requestType,
+        uint256 requestType,
         uint256 timestamp
     );
 
@@ -250,7 +250,7 @@ contract AtomicQueue is OwnableRoles, ReentrancyGuard {
         if (userRequest.requestType == 0) {
             if (address(want) != address(rateProviderRepo.vault())) revert AtomicQueue__SafeRequestWantMismatch();
             uint256 safeRate = rateProviderRepo.getAssetPriceInVaultShare(address(offer));
-            uint256 safeAtomicPrice = FixedPointMathLib.mulDiv(safeRate, 1e16 - discount, 1e16);
+            uint256 safeAtomicPrice = FixedPointMathLib.mulDiv(safeRate, 1e6 - discount, 1e6);
             if (safeAtomicPrice > type(uint256).max) revert AtomicQueue__SafeRequestCannotCastToUint88();
             userRequest.atomicPrice = uint88(safeAtomicPrice);
         } else if (userRequest.requestType == 1) {

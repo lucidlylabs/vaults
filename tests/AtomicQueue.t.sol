@@ -17,7 +17,7 @@ import {MockRateProvider} from "../src/Mocks/MockRateProvider.sol";
 import {PoolEstimator} from "./PoolEstimator.sol";
 import {LogExpMath} from "../src/BalancerLibCode/LogExpMath.sol";
 import {Aggregator} from "../src/Aggregator.sol";
-import {AtomicQueue} from "../src/Queue/AtomicQueue.sol";
+import {AtomicQueue} from "../src/AtomicQueue/AtomicQueue.sol";
 import {RateProviderRepository} from "../src/RateProvider/RateProviderRepository.sol";
 
 contract AtomicQueueTest is Test {
@@ -125,39 +125,21 @@ contract AtomicQueueTest is Test {
         vm.stopPrank();
     }
 
-    function test__SafeUpdateAtomicRequest() public {
-        vm.prank(jake);
+    function test__SafeUpdateAtomicDepositRequest() public {
+        vm.startPrank(jake);
         AtomicQueue queue = new AtomicQueue(jake);
-
         RateProviderRepository rateRepo = new RateProviderRepository(address(vault), address(pool), address(token0));
+        vm.stopPrank();
 
         address user = makeAddr("userA");
 
         MockToken token4 = new MockToken("name4", "symbol4", 8);
-        deal(address(token4), user, 100_000_000 * 1e8);
+        deal(address(token4), user, 100_000_000 * 1e8); // 100m tokens
 
-        // // User makes a safe atomic request
-        // AtomicQueue.AtomicRequest memory req = AtomicQueue.AtomicRequest({
-        //     deadline: uint64(block.timestamp + 1),
-        //     atomicPrice: uint88(0),
-        //     offerAmount: uint96(1e18),
-        //     inSolve: false
-        // });
-        // vm.prank(user);
-        // atomicQueue.safeUpdateAtomicRequest(boringVault, WEETH, req, accountant, 0.0001e6);
+        MockRateProvider(address(rp)).setRate(address(token4), 0.001 ether);
 
-        // // Zero out users weETH balance.
-        // deal(address(WEETH), user, 0);
-
-        // // Solver solves it.
-        // deal(address(WEETH), address(this), 1000e18);
-        // WEETH.approve(address(atomicSolverV3), type(uint256).max);
-        // address[] memory users = new address[](1);
-        // users[0] = user;
-        // atomicSolverV3.p2pSolve(atomicQueue, boringVault, WEETH, users, 0, type(uint256).max);
-
-        // uint256 expectedWeethForUser = accountant.getRateInQuoteSafe(WEETH).mulDivDown(0.9999e4, 1e4);
-        // assertApproxEqAbs(WEETH.balanceOf(user), expectedWeethForUser, 2, "User should receive WEETH");
+        vm.prank(jake);
+        rateRepo.addToken(address(token4), false, address(rp));
 
         // user makes a safe atomic request for deposit
         // solver solves it
@@ -165,13 +147,34 @@ contract AtomicQueueTest is Test {
         AtomicQueue.AtomicRequest memory request = AtomicQueue.AtomicRequest({
             deadline: uint64(vm.getBlockTimestamp() + 1),
             atomicPrice: uint88(0),
-            offerAmount: uint96(1e18),
+            offerAmount: uint96(1e8), // 1 token
             inSolve: false,
-            requestType: 0
+            requestType: 0 // deposit
         });
 
         vm.prank(user);
-        queue.safeUpdateAtomicRequest(ERC20(address(token4)), ERC20(address(vault)), request, rateRepo, 1e6 / 100);
+        token4.approve(address(queue), type(uint256).max);
+
+        uint256 discount = 1e6 / 100;
+
+        uint256 safeMinPrice =
+            FixedPointMathLib.mulDiv(rateRepo.getAssetPriceInVaultShare(address(token4)), 1e6 - discount, 1e6);
+
+        vm.expectEmit(address(queue));
+        emit AtomicQueue.AtomicRequestUpdated(
+            user, // user address
+            address(token4), // offer ERC20
+            address(vault), // want ERC20
+            uint96(1e8), // offer amount
+            uint64(vm.getBlockTimestamp() + 1), // offer deadline
+            safeMinPrice, // minimum price for want ERC20
+            0, // deposit request type
+            vm.getBlockTimestamp() // current block.timestamp()
+        );
+
+        // user creates deposit request
+        vm.prank(user);
+        queue.safeUpdateAtomicRequest(ERC20(address(token4)), ERC20(address(vault)), request, rateRepo, discount);
 
         // user makes a safe atomic request for withdraw
         // solver solves it

@@ -45,6 +45,7 @@ contract RateProviderRepository is Ownable {
         pool = PoolV2(pool_);
         base = ERC20(base_);
         decimals = ERC20(vault_).decimals();
+        _setOwner(msg.sender);
     }
 
     /// @notice returns price of one vault share in terms of base
