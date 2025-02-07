@@ -18,16 +18,23 @@ contract AtomicQueue is OwnableRoles, ReentrancyGuard {
     /*                            TYPES                           */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
-    ///  @notice Stores request information needed to fulfill a users atomic
-    ///          request.
-    ///  @param deadline unix timestamp for when request is no longer valid
-    ///  @param atomicPrice the price in terms of `want` asset the user wants
-    ///         their `offer` assets "sold" at
-    ///  @dev atomicPrice MUST be in terms of `want` asset decimals.
-    ///  @param offerAmount the amount of `offer` asset the user wants
-    ///         converted to `want` asset
-    ///  @param inSolve bool used during solves to prevent duplicate users
-    ///         and to prevent redoing multiple checks
+    /// @dev only 2 request types
+    enum RequestType {
+        Deposit,
+        Withdraw
+    }
+
+    /// @notice Stores request information needed to fulfill a users atomic
+    ///         request.
+    /// @param deadline unix timestamp for when request is no longer valid
+    /// @param atomicPrice the price in terms of `want` asset the user wants
+    ///        their `offer` assets "sold" at
+    /// @dev atomicPrice MUST be in terms of `want` asset decimals.
+    /// @param offerAmount the amount of `offer` asset the user wants
+    ///        converted to `want` asset
+    /// @param inSolve bool used during solves to prevent duplicate users
+    ///        and to prevent redoing multiple checks
+    /// @param requestType deposit or withdraw
     struct AtomicRequest {
         /// @dev deadline to fulfill the request
         uint64 deadline;
@@ -37,8 +44,8 @@ contract AtomicQueue is OwnableRoles, ReentrancyGuard {
         uint96 offerAmount;
         /// @dev bool to check if this order is being fullfilled
         bool inSolve;
-        /// @dev 0 for deposit, 1 for withdrawal
-        uint8 requestType;
+        /// @dev RequestType.Deposit for deposit, RequestType.Withdraw for withdraw
+        RequestType requestType;
     }
 
     /// @notice Used in `viewSolveMetaData` helper function to return data in
@@ -123,7 +130,7 @@ contract AtomicQueue is OwnableRoles, ReentrancyGuard {
         uint256 amount,
         uint256 deadline,
         uint256 minPrice,
-        uint256 requestType,
+        RequestType requestType,
         uint256 timestamp
     );
 
@@ -247,17 +254,17 @@ contract AtomicQueue is OwnableRoles, ReentrancyGuard {
         if (userRequest.offerAmount == 0) revert AtomicQueue__SafeRequestOfferAmountZero();
         if (discount > MAX_DISCOUNT) revert AtomicQueue__SafeRequestDiscountTooLarge();
 
-        if (userRequest.requestType == 0) {
+        if (userRequest.requestType == RequestType.Deposit) {
             if (address(want) != address(rateProviderRepo.vault())) revert AtomicQueue__SafeRequestWantMismatch();
             uint256 safeRate = rateProviderRepo.getAssetPriceInVaultShare(address(offer));
             uint256 safeAtomicPrice = FixedPointMathLib.mulDiv(safeRate, 1e6 - discount, 1e6);
-            if (safeAtomicPrice > type(uint256).max) revert AtomicQueue__SafeRequestCannotCastToUint88();
+            if (safeAtomicPrice > type(uint88).max) revert AtomicQueue__SafeRequestCannotCastToUint88();
             userRequest.atomicPrice = uint88(safeAtomicPrice);
-        } else if (userRequest.requestType == 1) {
+        } else if (userRequest.requestType == RequestType.Withdraw) {
             if (address(offer) != address(rateProviderRepo.vault())) revert AtomicQueue__SafeRequestOfferMismatch();
             uint256 safeRate = rateProviderRepo.getVaultSharePriceInAsset(address(want));
             uint256 safeAtomicPrice = FixedPointMathLib.mulDiv(safeRate, 1e6 - discount, 1e6);
-            if (safeAtomicPrice > type(uint8).max) revert AtomicQueue__SafeRequestCannotCastToUint88();
+            if (safeAtomicPrice > type(uint88).max) revert AtomicQueue__SafeRequestCannotCastToUint88();
             userRequest.atomicPrice = uint88(safeAtomicPrice);
         } else {
             revert AtomicQueue__InvalidRequestType();
@@ -475,7 +482,7 @@ contract AtomicQueue is OwnableRoles, ReentrancyGuard {
         request.deadline = userRequest.deadline;
         request.atomicPrice = userRequest.atomicPrice;
         request.offerAmount = userRequest.offerAmount;
-        request.requestType - userRequest.requestType;
+        request.requestType = userRequest.requestType;
 
         // Emit full amount user has.
         emit AtomicRequestUpdated(
