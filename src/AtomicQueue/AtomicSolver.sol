@@ -28,4 +28,20 @@ abstract contract AtomicSolver is IAtomicSolver {
         }
         SafeTransferLib.safeApprove(address(want), msg.sender, assetsForWant);
     }
+
+    /// @notice Solver wants to exchange p2p share.asset() for withdraw queue shares.
+    /// @dev Solver should approve this contract to spend share.asset().
+    function p2pSolve(
+        AtomicQueue queue,
+        ERC20 offer,
+        ERC20 want,
+        address[] calldata users,
+        uint256 minOfferReceived,
+        uint256 maxAssets
+    ) external requiresAuth {
+        bytes memory runData = abi.encode(SolveType.P2P, msg.sender, minOfferReceived, maxAssets);
+
+        // Solve for `users`.
+        queue.solve(offer, want, users, runData, address(this));
+    }
 }

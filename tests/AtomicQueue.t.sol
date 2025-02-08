@@ -223,4 +223,53 @@ contract AtomicQueueTest is Test {
         vm.prank(user);
         queue.safeUpdateAtomicRequest(ERC20(address(vault)), ERC20(address(token4)), request, rateRepo, discount);
     }
+
+    function test__SolveDepositRequest() public {
+        vm.startPrank(jake);
+        AtomicQueue queue = new AtomicQueue(jake);
+        RateProviderRepository rateRepo = new RateProviderRepository(address(vault), address(pool), address(token0));
+        vm.stopPrank();
+
+        address user = makeAddr("userA");
+
+        MockToken token4 = new MockToken("name4", "symbol4", 8);
+        deal(address(token4), user, 100_000_000 * 1e8); // 100m tokens
+
+        MockRateProvider(address(rp)).setRate(address(token4), 0.001 ether);
+
+        vm.prank(jake);
+        rateRepo.addToken(address(token4), false, address(rp));
+
+        AtomicQueue.AtomicRequest memory request = AtomicQueue.AtomicRequest({
+            deadline: uint64(vm.getBlockTimestamp() + 1),
+            atomicPrice: uint88(0),
+            offerAmount: uint96(1e8), // 1 token
+            inSolve: false,
+            requestType: AtomicQueue.RequestType.Deposit // deposit
+        });
+
+        vm.prank(user);
+        token4.approve(address(queue), type(uint256).max);
+
+        uint256 discount = 1e6 / 100;
+
+        uint256 safeMinPrice =
+            FixedPointMathLib.mulDiv(rateRepo.getAssetPriceInVaultShare(address(token4)), 1e6 - discount, 1e6);
+
+        vm.expectEmit(address(queue));
+        emit AtomicQueue.AtomicRequestUpdated(
+            user, // user address
+            address(token4), // offer ERC20
+            address(vault), // want ERC20
+            uint96(1e8), // offer amount
+            uint64(vm.getBlockTimestamp() + 1), // offer deadline
+            safeMinPrice, // minimum price for want ERC20
+            AtomicQueue.RequestType.Deposit, // deposit request type
+            vm.getBlockTimestamp() // current block.timestamp()
+        );
+
+        // user creates deposit request
+        vm.prank(user);
+        queue.safeUpdateAtomicRequest(ERC20(address(token4)), ERC20(address(vault)), request, rateRepo, discount);
+    }
 }
