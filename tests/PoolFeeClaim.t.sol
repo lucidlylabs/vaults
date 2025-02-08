@@ -46,7 +46,10 @@ contract PerfFee is Test {
 
     address jake = makeAddr("jake"); // pool and staking owner
     address alice = makeAddr("alice"); // first LP
-    address thirdParty = makeAddr("thirdParty");
+    address bob = makeAddr("bob"); //second LP
+
+    address thirdParty = makeAddr("thirdParty"); // third party with access to claim fees
+    uint256 tokenIndex;
 
     function setUp() public {
         rateProvider = IRateProvider(new MockRateProvider());
@@ -83,9 +86,12 @@ contract PerfFee is Test {
         // deploy staking contract
         vault = new Vault(address(poolToken), "XYZ Vault Share", "XYZVS", 100, 100, jake, jake, jake);
 
-        splitter = new FeeSplitter(address(poolToken), jake, thirdParty);
+        
         // set staking on pool
         vm.startPrank(jake);
+        splitter = new FeeSplitter(address(poolToken), jake, thirdParty);
+
+        tokenIndex = 0;
         poolToken.setPool(address(pool));
         poolToken.setVaultAddress(address(vault));
 
@@ -96,6 +102,8 @@ contract PerfFee is Test {
         pool.setSwapFeeRate(3 * PRECISION / 10_000); // 3 bps
         vault.setEntryFeeAddress(jake);
         vault.setEntryFeeInBps(100); // 100 bps
+
+        splitter.setTokenIndex(tokenIndex);
         vm.stopPrank();
 
         // mint tokens to first lp
@@ -128,46 +136,66 @@ contract PerfFee is Test {
         uint256 shares = vault.deposit(lpAmount, alice);
         vault.transfer(address(vault), shares / 10);
         vm.stopPrank();
-    }
 
-    function test__end2endFlow() public {
-        uint256[] memory minAmountsOut = new uint256[](pool.numTokens());
-        address bob = makeAddr("bob");
+
         deal(address(token0), bob, 100_000_000 * 1e18);
-        deal(address(token1), bob, 100_000_000 * 1e18);
-        deal(address(token2), bob, 100_000_000 * 1e18);
-
-        uint256 tokenAmount = 100000 * 1e18;
-
+        uint256 tokenAmount = 1000 * 1e18;
         vm.startPrank(bob);
-
         require(ERC20(address(token0)).approve(address(agg), type(uint256).max), "could not approve");
-
-        uint256 sharesBeforeDeposit = vault.balanceOf(bob);
-        uint256 sharesReceived = agg.depositSingle(0, tokenAmount, bob, 0, address(pool));
-        uint256 sharesAfterDeposit = vault.balanceOf(bob);
-
-        
-
+        agg.depositSingle(0, tokenAmount, bob, 0, address(pool));
         vm.stopPrank();
 
-        // claim fees
-        vm.startPrank(thirdParty);
+    }
 
-        uint256 intial_balance = poolToken.balanceOf(thirdParty);
-        splitter.claimRecipient1();
-        uint256 final_balance = poolToken.balanceOf(thirdParty);
+    function testClaimingFees() public{
+        address recipient0 = splitter.recipient0();
+        address recipient1 = splitter.recipient1();
+        ERC20 token = ERC20(pool.tokens(tokenIndex));
+        splitter.updateBalances();
 
-        assert(final_balance > intial_balance);
-        console.log("Token0 balance", ERC20(address(token0)).balanceOf(thirdParty));
-       
-        splitter.claimBalancedRecipient1(address(pool), minAmountsOut);
+        uint256 balanceBeforeClaim0 = token.balanceOf(recipient0);
+        uint256 balanceBeforeClaim1 = token.balanceOf(recipient1);
 
-        // splitter.claimSingleRecipient1(address(pool),1,0);
+        vm.prank(recipient0);
+        splitter.claimRecipient0(address(pool), 0);
+        uint256 balanceAfterClaim0 = token.balanceOf(recipient0);
+        assertGt(balanceAfterClaim0, balanceBeforeClaim0, "Recipient0 did not receive any tokens");
+        vm.stopPrank();
 
-        console.log("Token0 balance", ERC20(address(token0)).balanceOf(thirdParty));
+        vm.prank(recipient1);
+        splitter.claimRecipient1(address(pool), 0);
+        uint256 balanceAfterClaim1 = token.balanceOf(recipient1);
+        assertGt(balanceAfterClaim1, balanceBeforeClaim1, "Recipient1 did not receive any tokens");
+        vm.stopPrank();
+        // assertEq(splitter.recipient0OwedAmount(), 0, "Recipient0 balance not reset");
+        // assertEq(splitter.recipient1OwedAmount(), 0, "Recipient1 balance not reset");
+    }
 
+    function testSetTokenIndex() public {
+        address owner = splitter.owner();
+        uint256 index = 1;
+        vm.prank(owner);
+        splitter.setTokenIndex(index);
+        assertEq(splitter.tokenIndex(), index, "Token index not set");
+    }
 
+    function testUpdateRecipients() public {
+        address recipient0 = splitter.recipient0();
+        address recipient1 = splitter.recipient1();
+        address randomAddress = makeAddr("randomAddress");
+        address newRecipient0 = address(0x789);
+        address newRecipient1 = address(0x9ab);
 
+        vm.expectRevert(bytes("Unauthorized"));
+        vm.prank(randomAddress);
+        splitter.updateRecipient0(newRecipient0);
+
+        vm.prank(recipient0);
+        splitter.updateRecipient0(newRecipient0);
+        assertEq(splitter.recipient0(), newRecipient0, "Recipient0 address not updated");
+
+        vm.prank(recipient1);
+        splitter.updateRecipient1(newRecipient1);
+        assertEq(splitter.recipient1(), newRecipient1, "Recipient1 address not updated");
     }
 }
