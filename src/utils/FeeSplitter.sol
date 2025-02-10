@@ -5,20 +5,18 @@ import {ERC20} from "../../lib/solady/src/tokens/ERC20.sol";
 import {SafeTransferLib} from "../../lib/solady/src/utils/SafeTransferLib.sol";
 import {ReentrancyGuard} from "../../lib/solady/src/utils/ReentrancyGuard.sol";
 import {Ownable} from "../../lib/solady/src/auth/Ownable.sol";
-
 import {PoolV2} from "../Poolv2.sol";
+import {PoolToken} from "../PoolToken.sol";
 
-contract FeeSplitter is ReentrancyGuard,Ownable {
+contract FeeSplitter is ReentrancyGuard, Ownable {
     event FeesDistributed(uint256 amountForRecipient0, uint256 amountForRecipient1);
     event FeesClaimed(address indexed recipient, uint256 amount);
 
     ERC20 public token;
     address public recipient0;
     address public recipient1;
-
     uint256 public recipient0OwedAmount;
     uint256 public recipient1OwedAmount;
-
     uint256 public tokenIndex;
 
     constructor(address feeToken, address r0, address r1) {
@@ -46,28 +44,25 @@ contract FeeSplitter is ReentrancyGuard,Ownable {
         emit FeesDistributed(recipient0OwedAmount, recipient1OwedAmount);
     }
 
-    
-    function claimRecipient0(address poolAddress,
-        uint256 minAmountOut
-        ) external nonReentrant returns(uint256 tokenOutAmount) {
+    function claimRecipient0() external nonReentrant returns (uint256 tokenOutAmount) {
+        address poolAddress = PoolToken(address(token)).poolAddress();
         require(msg.sender == recipient0, "Only recipient0 can claim this");
-        require(PoolV2(poolAddress).numTokens()>tokenIndex, "Token not bound");
+        require(PoolV2(poolAddress).numTokens() > tokenIndex, "Token not bound");
         updateBalances();
         uint256 amount = recipient0OwedAmount;
         recipient0OwedAmount = 0;
-        tokenOutAmount = PoolV2(poolAddress).removeLiquiditySingle(tokenIndex, amount, minAmountOut, recipient0);
+        tokenOutAmount = PoolV2(poolAddress).removeLiquiditySingle(tokenIndex, amount, 0, recipient0);
         emit FeesClaimed(msg.sender, tokenOutAmount);
     }
 
-    function claimRecipient1(address poolAddress,
-        uint256 minAmountOut
-        ) external nonReentrant returns (uint256 tokenOutAmount) {
+    function claimRecipient1() external nonReentrant returns (uint256 tokenOutAmount) {
+        address poolAddress = PoolToken(address(token)).poolAddress();
         require(msg.sender == recipient1, "Only recipient1 can claim this");
-        require(PoolV2(poolAddress).numTokens()>tokenIndex, "Token not bound");
+        require(PoolV2(poolAddress).numTokens() > tokenIndex, "Token not bound");
         updateBalances();
         uint256 amount = recipient1OwedAmount;
         recipient1OwedAmount = 0;
-        tokenOutAmount = PoolV2(poolAddress).removeLiquiditySingle(tokenIndex, amount, minAmountOut, recipient1);
+        tokenOutAmount = PoolV2(poolAddress).removeLiquiditySingle(tokenIndex, amount, 0, recipient1);
         emit FeesClaimed(msg.sender, tokenOutAmount);
     }
 
