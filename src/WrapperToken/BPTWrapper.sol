@@ -198,30 +198,4 @@ contract BPTWrapper is ERC4626, ReentrancyGuard {
             _param.deadline
         );
     }
-
-    /// @notice Internal function to join Balancer pools
-    /// @param _balancerVault Reference to Balancer vault contract
-    /// @param _tokens Array of pool constituent token addresses
-    /// @param _maxAmountsIn Array of maximum input amounts for each token
-    /// @param _poolId ID of the target Balancer pool
-    /// @dev Uses EXACT_TOKENS_IN_FOR_BPT_OUT join kind (encoded as 1)
-    function _balancerJoinPool(
-        IBalancerVault _balancerVault,
-        address[] memory _tokens,
-        uint256[] memory _maxAmountsIn,
-        bytes32 _poolId
-    ) internal {
-        bytes memory userData = abi.encode(1, _maxAmountsIn, 0); // JoinKind: 1
-        _balancerVault.joinPool(
-            _poolId,
-            address(this),
-            address(this),
-            IBalancerVault.JoinPoolRequest(
-                _tokens,
-                _maxAmountsIn,
-                userData,
-                false
-            )
-        );
-    }
 }
