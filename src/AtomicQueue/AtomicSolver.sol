@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {OwnableRoles} from "../../lib/solady/src/auth/OwnableRoles.sol";
+import {OwnableRoles, Ownable} from "../../lib/solady/src/auth/OwnableRoles.sol";
 import {ReentrancyGuard} from "../../lib/solady/src/utils/ReentrancyGuard.sol";
 import {FixedPointMathLib} from "../../lib/solady/src/utils/FixedPointMathLib.sol";
 import {Address} from "../../lib/openzeppelin-contracts/contracts/utils/Address.sol";
@@ -10,8 +10,18 @@ import {ERC20} from "../../lib/solady/src/tokens/ERC20.sol";
 
 import {IRateProvider} from "../RateProvider/IRateProvider.sol";
 import {IAtomicSolver} from "./IAtomicSolver.sol";
+import {AtomicQueue} from "./AtomicQueue.sol";
 
-abstract contract AtomicSolver is IAtomicSolver {
+abstract contract AtomicSolver is IAtomicSolver, Ownable {
+    enum SolveType {
+        Deposit,
+        Withdraw
+    }
+
+    constructor() {
+        _setOwner(msg.sender);
+    }
+
     /// @notice to be called be the queue
     function finishSolve(
         bytes calldata runData,
@@ -31,15 +41,15 @@ abstract contract AtomicSolver is IAtomicSolver {
 
     /// @notice Solver wants to exchange p2p share.asset() for withdraw queue shares.
     /// @dev Solver should approve this contract to spend share.asset().
-    function p2pSolve(
+    function depositSolve(
         AtomicQueue queue,
         ERC20 offer,
         ERC20 want,
         address[] calldata users,
         uint256 minOfferReceived,
         uint256 maxAssets
-    ) external requiresAuth {
-        bytes memory runData = abi.encode(SolveType.P2P, msg.sender, minOfferReceived, maxAssets);
+    ) external onlyOwner {
+        bytes memory runData = abi.encode(SolveType.Deposit, msg.sender, minOfferReceived, maxAssets);
 
         // Solve for `users`.
         queue.solve(offer, want, users, runData, address(this));
