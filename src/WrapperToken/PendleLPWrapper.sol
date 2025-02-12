@@ -12,8 +12,7 @@ import {ISpectraPool} from "./interfaces/ISpectraPool.sol";
 import {IPendleRouterV4} from "./interfaces/IPendleRouterV4.sol";
 import {IPendleMarket} from "./interfaces/IPendleMarket.sol";
 import {IUniswapSwapRouter02} from "./interfaces/IUniswapSwapRouter02.sol";
-import {IAvalonSaving} from "./interfaces/IAvalonSaving.sol";
-import {console} from "forge-std/console.sol";
+import {ICurveStableSwap} from "./interfaces/ICurveStableSwap.sol";
 
 contract PendleLPWrapper is ERC4626, ReentrancyGuard {
     IERC20 public constant PENDLE = IERC20(0x808507121B80c02388fAd14726482e061B8da827);
@@ -24,7 +23,7 @@ contract PendleLPWrapper is ERC4626, ReentrancyGuard {
     IPendleRouterV4 public constant PENDLE_ROUTER = IPendleRouterV4(0x888888888889758F76e7103c6CbF23ABbF58F946);
     IUniswapSwapRouter02 public constant UNISWAP_ROUTER =
         IUniswapSwapRouter02(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
-    IAvalonSaving public constant AVALON_SAVING = IAvalonSaving(0x01e3cc8E17755989ad2CAFE78A822354Eb5DdFA6);
+    ICurveStableSwap public constant CURVE_STABLE_SWAP = ICurveStableSwap(0xc95D0BA00Cdf61440E6F86cc55cCD477D7287A32); // Curve Stable Swap - sUSDa/USDa
 
     IPendleMarket public immutable lpToken;
 
@@ -33,6 +32,11 @@ contract PendleLPWrapper is ERC4626, ReentrancyGuard {
 
     // EmptyLimit means no limit order is involved
     IPendleRouterV4.LimitOrderData public emptyLimit;
+
+    event PendleRedeemFailed();
+    event UniswapSwapFailed();
+    event CurveStableSwapFailed();
+    event PendleAddLiquidityFailed();
 
     constructor(string memory _name, string memory _symbol, address _lpToken)
         ERC20(_name, _symbol)
@@ -69,7 +73,11 @@ contract PendleLPWrapper is ERC4626, ReentrancyGuard {
         yts[0] = YT;
         address[] memory markets = new address[](1);
         markets[0] = address(lpToken);
-        PENDLE_ROUTER.redeemDueInterestAndRewards(address(this), sys, yts, markets);
+        try PENDLE_ROUTER.redeemDueInterestAndRewards(address(this), sys, yts, markets) {}
+        catch {
+            emit PendleRedeemFailed();
+            return 0;
+        }
 
         uint256 pendleBalance = PENDLE.balanceOf(address(this));
         if (pendleBalance == 0) return 0;
@@ -80,19 +88,27 @@ contract PendleLPWrapper is ERC4626, ReentrancyGuard {
         _uniswapV3Swap(address(PENDLE), pendleBalance, path);
         uint256 usdaBalance = USDa.balanceOf(address(this));
         if (usdaBalance == 0) return 0;
-        USDa.approve(address(AVALON_SAVING), usdaBalance);
-        AVALON_SAVING.mint(usdaBalance);
+        USDa.approve(address(CURVE_STABLE_SWAP), usdaBalance);
+        try CURVE_STABLE_SWAP.exchange(0, 1, usdaBalance, 0) {}
+        catch {
+            emit CurveStableSwapFailed();
+            return 0;
+        }
 
         uint256 susdaBalance = SUSDa.balanceOf(address(this));
+        if (susdaBalance == 0) return 0;
         SUSDa.approve(address(PENDLE_ROUTER), susdaBalance);
-        PENDLE_ROUTER.addLiquiditySingleToken(
+        try PENDLE_ROUTER.addLiquiditySingleToken(
             address(this),
             address(lpToken),
             0,
             IPendleRouterV4.ApproxParams(0, type(uint256).max, 0, 256, 1e14),
             IPendleRouterV4.TokenInput(address(SUSDa), susdaBalance, address(SUSDa), address(0), emptySwap),
             emptyLimit
-        );
+        ) {} catch {
+            emit PendleAddLiquidityFailed();
+            return 0;
+        }
 
         uint256 lpBalance = lpToken.balanceOf(address(this));
         return lpBalance;
@@ -108,6 +124,11 @@ contract PendleLPWrapper is ERC4626, ReentrancyGuard {
             amountOutMinimum: 0
         });
 
-        return UNISWAP_ROUTER.exactInput(params);
+        try UNISWAP_ROUTER.exactInput(params) returns (uint256 amountOut) {
+            return amountOut;
+        } catch {
+            emit UniswapSwapFailed();
+            return 0;
+        }
     }
 }

@@ -42,7 +42,7 @@ import {IERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20
 //     function testCompoundRewards() public {
 //         vm.startPrank(user);
 //         uint256 userBalance = IERC20(PENDLE_MARKET).balanceOf(user);
-//         IERC20(PENDLE_MARKET).transfer(address(pendleLPWrapper), userBalance); // Transfer 50% to user
+//         IERC20(PENDLE_MARKET).transfer(address(pendleLPWrapper), userBalance);
 
 //         vm.warp(block.timestamp + 7 days);
 

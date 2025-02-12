@@ -11,7 +11,8 @@ import {IBalancerVaultV3} from "./interfaces/IBalancerVaultV3.sol";
 import {ISpectraPool} from "./interfaces/ISpectraPool.sol";
 
 contract SpectraLPWrapper is ERC4626, ReentrancyGuard {
-    ISpectraCampaignManager public constant CAMPAIGN_MANAGER = ISpectraCampaignManager(0x1C5Ecca381961D92b6aAF7bC1656C37021b0F1D9);
+    ISpectraCampaignManager public constant CAMPAIGN_MANAGER =
+        ISpectraCampaignManager(0x1C5Ecca381961D92b6aAF7bC1656C37021b0F1D9);
     IERC20 public constant SPECTRA = IERC20(0xb827E91C5cd4d6aCa2FC0cD93A07dB61896Af40B);
     IERC20 public constant USDCe = IERC20(0x29219dd400f2Bf60E5a23d13Be72B486D4038894);
     IBalancerVault public constant BALANCER_VAULT = IBalancerVault(0xBA12222222228d8Ba445958a75a0704d566BF2C8);
@@ -26,7 +27,7 @@ contract SpectraLPWrapper is ERC4626, ReentrancyGuard {
     IERC4626 public constant WAN_S = IERC4626(0xfA85Fe5A8F5560e9039C04f2b0a90dE1415aBD70);
     ISpectraPool public constant SPECTRA_POOL = ISpectraPool(0x2386ebDE944e723Ffd9066bE23709444342d2685);
     IERC20 public immutable lpToken;
-    
+
     struct ClaimCalldataType {
         address token;
         address rewardToken;
@@ -53,22 +54,29 @@ contract SpectraLPWrapper is ERC4626, ReentrancyGuard {
         uint256 deadline;
     }
 
-    constructor(
-        string memory _name,
-        string memory _symbol,
-        address _lpToken
-    ) ERC20(_name, _symbol) ERC4626(IERC20(_lpToken)) {
+    constructor(string memory _name, string memory _symbol, address _lpToken)
+        ERC20(_name, _symbol)
+        ERC4626(IERC20(_lpToken))
+    {
         lpToken = IERC20(_lpToken);
     }
 
-    function deposit(uint256 assets, address receiver, ClaimCalldataType memory claimCalldata) public nonReentrant returns (uint256) {
+    function deposit(uint256 assets, address receiver, ClaimCalldataType memory claimCalldata)
+        public
+        nonReentrant
+        returns (uint256)
+    {
         _compoundRewards(claimCalldata);
 
         uint256 shares = super.deposit(assets, receiver);
         return shares;
     }
 
-    function withdraw(uint256 assets, address receiver, address owner, ClaimCalldataType memory claimCalldata) public nonReentrant returns (uint256) {
+    function withdraw(uint256 assets, address receiver, address owner, ClaimCalldataType memory claimCalldata)
+        public
+        nonReentrant
+        returns (uint256)
+    {
         _compoundRewards(claimCalldata);
 
         uint256 shares = super.withdraw(assets, receiver, owner);
@@ -161,12 +169,7 @@ contract SpectraLPWrapper is ERC4626, ReentrancyGuard {
 
         WAN_S.approve(address(SPECTRA_POOL), wanSBalance);
         // need to test
-        SPECTRA_POOL.add_liquidity(
-            [wanSBalance, 0],
-            0,
-            false,
-            address(this)
-        );
+        SPECTRA_POOL.add_liquidity([wanSBalance, 0], 0, false, address(this));
         uint256 lpTokenBalance = lpToken.balanceOf(address(this));
         return lpTokenBalance;
     }
@@ -183,28 +186,17 @@ contract SpectraLPWrapper is ERC4626, ReentrancyGuard {
     ) internal returns (uint256) {
         IERC20(_param.assetIn).approve(address(_balancerVault), _param.amount);
         return _balancerVault.swap(
-            IBalancerVault.SingleSwap(
-                _param.poolId,
-                _swap,
-                _param.assetIn,
-                _param.assetOut,
-                _param.amount,
-                ""
-            ),
-            IBalancerVault.FundManagement(
-                address(this),
-                false,
-                payable(_param.recipient),
-                false
-            ),
+            IBalancerVault.SingleSwap(_param.poolId, _swap, _param.assetIn, _param.assetOut, _param.amount, ""),
+            IBalancerVault.FundManagement(address(this), false, payable(_param.recipient), false),
             _param.limit,
             _param.deadline
         );
     }
 
-    function _balancerSwapOutV3(
-        IBalancerVaultV3.VaultSwapParams memory _param
-    ) internal returns (uint256, uint256, uint256) {
+    function _balancerSwapOutV3(IBalancerVaultV3.VaultSwapParams memory _param)
+        internal
+        returns (uint256, uint256, uint256)
+    {
         IERC20(_param.tokenIn).approve(address(BALANCER_VAULT_V3), _param.amountGivenRaw);
         return BALANCER_VAULT_V3.swap(_param);
     }

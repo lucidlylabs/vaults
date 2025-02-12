@@ -49,23 +49,19 @@ contract BPTWrapper is ERC4626, ReentrancyGuard {
 
     /// @notice Emitted when rewards are compounded
     /// @param bptAdded Amount of BPT added to the gauge
-    event RewardsCompounded(
-        uint256 bptAdded
-    );
+    event RewardsCompounded(uint256 bptAdded);
 
     error BPTWrapper__NoClaimableRewards();
-    
+
     /// @notice Initializes the BPT wrapper contract
     /// @param _name Name for the ERC20 share token
     /// @param _symbol Symbol for the ERC20 share token
     /// @param _poolToken Address of the underlying BPT token
     /// @param _gauge Address of the Beets gauge contract
-    constructor(
-        string memory _name,
-        string memory _symbol,
-        address _poolToken,
-        address _gauge
-    ) ERC20(_name, _symbol) ERC4626(IERC20(_poolToken)) {
+    constructor(string memory _name, string memory _symbol, address _poolToken, address _gauge)
+        ERC20(_name, _symbol)
+        ERC4626(IERC20(_poolToken))
+    {
         poolToken = IERC20(_poolToken);
         gauge = IBeetsGauge(_gauge);
     }
@@ -76,7 +72,7 @@ contract BPTWrapper is ERC4626, ReentrancyGuard {
 
     function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal override {
         compoundRewards();
-        
+
         super._deposit(caller, receiver, assets, shares);
         poolToken.approve(address(gauge), assets);
         gauge.deposit(assets);
@@ -87,7 +83,7 @@ contract BPTWrapper is ERC4626, ReentrancyGuard {
         override
     {
         compoundRewards();
-        
+
         gauge.withdraw(assets);
         super._withdraw(caller, receiver, owner, assets, shares);
     }
@@ -180,20 +176,8 @@ contract BPTWrapper is ERC4626, ReentrancyGuard {
     ) internal returns (uint256) {
         IERC20(_param.assetIn).approve(address(_balancerVault), _param.amount);
         return _balancerVault.swap(
-            IBalancerVault.SingleSwap(
-                _param.poolId,
-                _swap,
-                _param.assetIn,
-                _param.assetOut,
-                _param.amount,
-                ""
-            ),
-            IBalancerVault.FundManagement(
-                address(this),
-                false,
-                payable(_param.recipient),
-                false
-            ),
+            IBalancerVault.SingleSwap(_param.poolId, _swap, _param.assetIn, _param.assetOut, _param.amount, ""),
+            IBalancerVault.FundManagement(address(this), false, payable(_param.recipient), false),
             _param.limit,
             _param.deadline
         );

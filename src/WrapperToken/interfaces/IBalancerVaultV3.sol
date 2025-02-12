@@ -34,11 +34,11 @@ interface IBalancerVaultV3 {
         bytes userData;
     }
 
-    function addLiquidity(
-        AddLiquidityParams memory params
-    ) external returns (uint256[] memory amountsIn, uint256 bptAmountOut, bytes memory returnData);
+    function addLiquidity(AddLiquidityParams memory params)
+        external
+        returns (uint256[] memory amountsIn, uint256 bptAmountOut, bytes memory returnData);
 
-    function swap(
-        VaultSwapParams memory vaultSwapParams
-    ) external returns (uint256 amountCalculated, uint256 amountIn, uint256 amountOut);
+    function swap(VaultSwapParams memory vaultSwapParams)
+        external
+        returns (uint256 amountCalculated, uint256 amountIn, uint256 amountOut);
 }

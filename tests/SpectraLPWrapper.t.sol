@@ -19,7 +19,7 @@ import {ISpectraCampaignManager} from "../src/WrapperToken/interfaces/ISpectraCa
 //     // wanS Whale
 //     address public constant WAN_S_WHALE = 0x62a4A8f9f5F3AaE9Ee9CEE780285A0D501C12d09;
 //     address public constant SCUSD_WHALE = 0xaa17879e7cac3AEE12D6aa568691e638EF0C57f0;
-    
+
 //     // Test User
 //     address public user = makeAddr("user");
 

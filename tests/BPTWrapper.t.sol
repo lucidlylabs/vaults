@@ -12,16 +12,16 @@ import {IBeetsGauge} from "../src/WrapperToken/interfaces/IBeetsGauge.sol";
 //     address public constant BPT = 0x944D4AE892dE4BFd38742Cc8295d6D5164c5593C; // bpt-anS-SiloWS
 //     // address public constant BPT = 0x374641076B68371e69D03C417DAc3E5F236c32FA; // wS/stS BPT
 //     address public constant GAUGE = 0x8476F3A8DA52092e7835167AFe27835dC171C133; // Beets Gauge - wS/stS
-    
+
 //     // BPT Whale
 //     address public constant BPT_WHALE = 0x7c9597508Ea3a27D53600b180E23f4913a60Fd31;
-    
+
 //     // Test User
 //     address public user = makeAddr("user");
 
 //     function setUp() public {
 //         vm.createSelectFork(vm.rpcUrl("https://rpc.ankr.com/sonic_mainnet"));
-        
+
 //         // Deploy BPTWrapper
 //         bptWrapper = new BPTWrapper(
 //             "Wrapped BPT",
@@ -29,7 +29,7 @@ import {IBeetsGauge} from "../src/WrapperToken/interfaces/IBeetsGauge.sol";
 //             BPT,
 //             GAUGE
 //         );
-        
+
 //         // Transfer BPT from whale to user
 //         vm.startPrank(BPT_WHALE);
 //         uint256 userBalance = IERC20(BPT).balanceOf(BPT_WHALE);
@@ -58,14 +58,14 @@ import {IBeetsGauge} from "../src/WrapperToken/interfaces/IBeetsGauge.sol";
 //     function testCompoundRewards() public {
 //         // Deposit initial BPT
 //         testDeposit();
-        
+
 //         // Advance time by 7 days to accrue rewards
 //         vm.warp(block.timestamp + 7 days);
-        
+
 //         // Compound rewards
 //         vm.prank(user);
 //         bptWrapper.compoundRewards();
-        
+
 //         // Check if BPT in gauge increased
 //         uint256 newGaugeBalance = IBeetsGauge(GAUGE).balanceOf(address(bptWrapper));
 //         uint256 initialBalance = IERC20(BPT).balanceOf(user);
@@ -76,7 +76,7 @@ import {IBeetsGauge} from "../src/WrapperToken/interfaces/IBeetsGauge.sol";
 //     function testWithdraw() public {
 //         // Deposit first
 //         testDeposit();
-        
+
 //         // Withdraw all shares
 //         vm.startPrank(user);
 //         uint256 shares = bptWrapper.balanceOf(user);
@@ -85,7 +85,7 @@ import {IBeetsGauge} from "../src/WrapperToken/interfaces/IBeetsGauge.sol";
 
 //         // Check shares burned
 //         assertEq(bptWrapper.balanceOf(user), 0, "Shares not burned");
-        
+
 //         // Check BPT returned to user (may have increased due to rewards)
 //         uint256 userBptBalance = IERC20(BPT).balanceOf(user);
 //         assertGt(userBptBalance, 0, "No BPT returned");
