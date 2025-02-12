@@ -22,9 +22,10 @@ contract PendleLPWrapper is ERC4626, ReentrancyGuard {
     address public constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address public constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
     IPendleRouterV4 public constant PENDLE_ROUTER = IPendleRouterV4(0x888888888889758F76e7103c6CbF23ABbF58F946);
-    IUniswapSwapRouter02 public constant UNISWAP_ROUTER = IUniswapSwapRouter02(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
+    IUniswapSwapRouter02 public constant UNISWAP_ROUTER =
+        IUniswapSwapRouter02(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
     IAvalonSaving public constant AVALON_SAVING = IAvalonSaving(0x01e3cc8E17755989ad2CAFE78A822354Eb5DdFA6);
-    
+
     IPendleMarket public immutable lpToken;
 
     // EmptySwap means no swap aggregator is involved
@@ -32,12 +33,11 @@ contract PendleLPWrapper is ERC4626, ReentrancyGuard {
 
     // EmptyLimit means no limit order is involved
     IPendleRouterV4.LimitOrderData public emptyLimit;
-    
-    constructor(
-        string memory _name,
-        string memory _symbol,
-        address _lpToken
-    ) ERC20(_name, _symbol) ERC4626(IERC20(_lpToken)) {
+
+    constructor(string memory _name, string memory _symbol, address _lpToken)
+        ERC20(_name, _symbol)
+        ERC4626(IERC20(_lpToken))
+    {
         lpToken = IPendleMarket(_lpToken);
     }
 
@@ -61,7 +61,7 @@ contract PendleLPWrapper is ERC4626, ReentrancyGuard {
     }
 
     function _compoundRewards() internal returns (uint256) {
-        (address SY, , address YT) = lpToken.readTokens();
+        (address SY,, address YT) = lpToken.readTokens();
 
         address[] memory sys = new address[](1);
         sys[0] = SY;
@@ -69,12 +69,7 @@ contract PendleLPWrapper is ERC4626, ReentrancyGuard {
         yts[0] = YT;
         address[] memory markets = new address[](1);
         markets[0] = address(lpToken);
-        PENDLE_ROUTER.redeemDueInterestAndRewards(
-            address(this),
-            sys,
-            yts,
-            markets
-        );
+        PENDLE_ROUTER.redeemDueInterestAndRewards(address(this), sys, yts, markets);
 
         uint256 pendleBalance = PENDLE.balanceOf(address(this));
         if (pendleBalance == 0) return 0;
@@ -95,13 +90,7 @@ contract PendleLPWrapper is ERC4626, ReentrancyGuard {
             address(lpToken),
             0,
             IPendleRouterV4.ApproxParams(0, type(uint256).max, 0, 256, 1e14),
-            IPendleRouterV4.TokenInput(
-                address(SUSDa),
-                susdaBalance,
-                address(SUSDa),
-                address(0),
-                emptySwap
-            ),
+            IPendleRouterV4.TokenInput(address(SUSDa), susdaBalance, address(SUSDa), address(0), emptySwap),
             emptyLimit
         );
 
@@ -112,8 +101,7 @@ contract PendleLPWrapper is ERC4626, ReentrancyGuard {
     function _uniswapV3Swap(address tokenIn, uint256 amountIn, bytes memory path) internal returns (uint256) {
         IERC20(tokenIn).approve(address(UNISWAP_ROUTER), amountIn);
 
-        IUniswapSwapRouter02.ExactInputParams memory params = IUniswapSwapRouter02
-            .ExactInputParams({
+        IUniswapSwapRouter02.ExactInputParams memory params = IUniswapSwapRouter02.ExactInputParams({
             path: path,
             recipient: address(this),
             amountIn: amountIn,

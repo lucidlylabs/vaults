@@ -10,15 +10,11 @@ contract DeployPendleLPWrapper is Script {
 
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY_1");
-        
+
         vm.startBroadcast(deployerPrivateKey);
 
         // Deploy wrapper with same parameters as test
-        PendleLPWrapper wrapper = new PendleLPWrapper(
-            "Wrapped Pendle LP-sUSDa",
-            "wPendle LP-sUSDa",
-            LP_SUSDA
-        );
+        PendleLPWrapper wrapper = new PendleLPWrapper("Wrapped Pendle LP-sUSDa", "wPendle LP-sUSDa", LP_SUSDA);
 
         vm.stopBroadcast();
     }
