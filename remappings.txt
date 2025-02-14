@@ -1,4 +1,5 @@
 @openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
+@pendle/core-v2/=node_modules/@pendle/core-v2/
 ds-test/=lib/openzeppelin-contracts/lib/forge-std/lib/ds-test/src/
 erc4626-tests/=lib/erc4626-tests/
 forge-std/=lib/forge-std/src/
