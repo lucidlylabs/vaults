@@ -412,23 +412,25 @@ contract AggregatorTest is Test {
 
         vm.startPrank(jake);
 
-        Aggregator agg1 = new Aggregator();
+        Aggregator agg1 = Aggregator(0x6D06B7faC4f6393672Fd038083370d38f3B0AC35);
 
         ERC20 wans = ERC20(0xfA85Fe5A8F5560e9039C04f2b0a90dE1415aBD70);
         ERC20 lans = ERC20(0x15E96CDecA34B9DE1B31586c1206206aDb92E69D);
 
         uint256[] memory amounts = new uint256[](4);
-        uint256 amount = 5_000_000 * 1e18;
+        uint256 amount = 25_000_000 * 1e18;
         deal(address(wans), jake, amount);
         amounts[1] = amount;
 
         PoolV2 pool = PoolV2(0x033f4A109Fc11a11d3AFB92dCA0AB6C30BB3c722);
-        wans.approve(address(pool), amount);
-        uint256 lpMinted = pool.addLiquidity(amounts, 0, jake);
+        // wans.approve(address(pool), amount);
+        // uint256 lpMinted = pool.addLiquidity(amounts, 0, jake);
 
-        console.log("lpMinted:", lpMinted);
+        wans.approve(address(agg1), amount);
+        uint256 sharesMinted = agg1.depositSingle(1, amount, jake, 0, address(pool));
 
-        uint256 wansRemoved = pool.removeLiquiditySingle(1, lpMinted, 0, jake);
+        lans.approve(address(agg1), sharesMinted);
+        uint256 wansOut = agg1.redeemSingle(address(pool), 1, sharesMinted, 0, jake);
 
         vm.stopPrank();
     }
