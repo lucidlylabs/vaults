@@ -8,7 +8,7 @@ import {ERC20} from "../lib/solady/src/tokens/ERC20.sol";
 import {SafeTransferLib} from "../lib/solady/src/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "../lib/solady/src/utils/FixedPointMathLib.sol";
 
-import {Pool} from "../src/Pool.sol";
+import {PoolV2} from "../src/Poolv2.sol";
 import {PoolToken} from "../src/PoolToken.sol";
 import {Vault} from "../src/Vault.sol";
 import {MockToken} from "../src/Mocks/MockToken.sol";
@@ -19,7 +19,7 @@ import {LogExpMath} from "../src/BalancerLibCode/LogExpMath.sol";
 import {Aggregator} from "../src/Aggregator.sol";
 
 contract AggregatorTest is Test {
-    Pool pool;
+    PoolV2 pool;
     PoolToken poolToken;
     Vault vault;
     IRateProvider rp;
@@ -48,6 +48,8 @@ contract AggregatorTest is Test {
 
     function setUp() public {
         rp = IRateProvider(new MockRateProvider());
+
+        vm.prank(jake);
         agg = new Aggregator();
 
         MockRateProvider(address(rp)).setRate(address(token0), 2 ether);
@@ -76,7 +78,7 @@ contract AggregatorTest is Test {
         poolToken = new PoolToken("XYZ Pool Token", "lXYZ", 18, jake);
 
         // deploy pool
-        pool = new Pool(address(poolToken), amplification, tokens, rateProviders, weights, jake);
+        pool = new PoolV2(address(poolToken), amplification, tokens, rateProviders, weights, jake);
 
         // deploy staking contract
         vault = new Vault(address(poolToken), "XYZ Vault Share", "XYZVS", 100, 100, jake, jake, jake);
@@ -220,6 +222,50 @@ contract AggregatorTest is Test {
         assert(sharesEstimated == shares);
     }
 
+    function test__PauseUnpauseAggregator() public {
+        uint256 numTokens = pool.numTokens();
+        uint256[] memory amounts = new uint256[](numTokens);
+        uint256[] memory amountsEstimated = new uint256[](numTokens);
+        uint256 total1 = 100 * 1e18;
+        amounts = _calculateSeedAmounts(total1);
+        amountsEstimated[0] = amounts[0];
+        amounts[1] = 0;
+        amounts[2] = 0;
+        amountsEstimated[1] = 0;
+        amountsEstimated[2] = 0;
+
+        uint256 ss = vm.snapshotState();
+
+        vm.startPrank(alice);
+        uint256 lpTokens = pool.addLiquidity(amountsEstimated, 0, alice);
+        poolToken.approve(address(vault), lpTokens);
+        uint256 sharesEstimated = vault.deposit(lpTokens, alice);
+        vm.stopPrank();
+
+        vm.revertToState(ss);
+
+        vm.startPrank(alice);
+        require(ERC20(pool.tokens(0)).approve(address(agg), type(uint256).max), "could not approve");
+        vm.stopPrank();
+
+        uint256 sharesOfAlice = vault.balanceOf(alice);
+
+        vm.prank(jake);
+        agg.pause();
+
+        vm.startPrank(alice);
+        vm.expectRevert(bytes4(keccak256(bytes("Aggregator__Paused()"))));
+        uint256 shares = agg.depositSingle(0, amounts[0], alice, 0, address(pool));
+        vm.stopPrank();
+
+        vm.prank(jake);
+        agg.unpause();
+
+        vm.startPrank(alice);
+        shares = agg.depositSingle(0, amounts[0], alice, 0, address(pool));
+        vm.stopPrank();
+    }
+
     // function test__ExecuteZapAndDeposit() public {
     //     vm.createSelectFork(vm.rpcUrl("http://127.0.0.1:8545"));
 
@@ -359,5 +405,31 @@ contract AggregatorTest is Test {
 
         assert(aliceShares - vault.balanceOf(alice) == aliceLpWorth);
         assert(amountOutEstimated == amountOutActual);
+    }
+
+    function test__MainnetForkDepositAndWithdraw() public {
+        vm.createSelectFork(vm.rpcUrl("http://127.0.0.1:8545"));
+
+        vm.startPrank(jake);
+
+        Aggregator agg1 = new Aggregator();
+
+        ERC20 wans = ERC20(0xfA85Fe5A8F5560e9039C04f2b0a90dE1415aBD70);
+        ERC20 lans = ERC20(0x15E96CDecA34B9DE1B31586c1206206aDb92E69D);
+
+        uint256[] memory amounts = new uint256[](4);
+        uint256 amount = 5_000_000 * 1e18;
+        deal(address(wans), jake, amount);
+        amounts[1] = amount;
+
+        PoolV2 pool = PoolV2(0x033f4A109Fc11a11d3AFB92dCA0AB6C30BB3c722);
+        wans.approve(address(pool), amount);
+        uint256 lpMinted = pool.addLiquidity(amounts, 0, jake);
+
+        console.log("lpMinted:", lpMinted);
+
+        uint256 wansRemoved = pool.removeLiquiditySingle(1, lpMinted, 0, jake);
+
+        vm.stopPrank();
     }
 }
