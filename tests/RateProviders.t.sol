@@ -27,48 +27,48 @@ address constant GAUNTLET_USDC_PRIME = 0xdd0f28e19C1780eb6396170735D45153D261490
 //     IRateProvider usdeRateProvider;
 //     IRateProvider pufEthRateProvider;
 //     uint256 private constant PRECISION = 1e18;
-//
+
 //     function setUp() public {
 //         vm.createSelectFork(vm.rpcUrl("http://127.0.0.1:8545"));
 //         usdeRateProvider = new EthenaVaultV2RateProvider();
 //         pufEthRateProvider = new PufEthVaultV2RateProvider();
 //     }
-//
+
 //     function test__FetchPufEthPrice() public view {
 //         uint256 rate = pufEthRateProvider.rate(PUFETH);
 //         console.log("PUFETH/ETH rate:", rate);
 //     }
-//
+
 //     function test__FetchPufEthWstEthLpPrice() public view {
 //         uint256 rate = pufEthRateProvider.rate(PUFETH_WSTETH_CURVE);
 //         console.log("WSTETHLP/ETH rate:", rate);
 //     }
-//
+
 //     function test__FetchWethPufEthLpPrice() public view {
 //         uint256 rate = pufEthRateProvider.rate(WETH_PUFETH_CURVE);
 //         console.log("WETHLP/ETH rate:", rate);
 //     }
-//
+
 //     function test__GauntletWethCorePrice() public view {
 //         uint256 rate = pufEthRateProvider.rate(GAUNTLET_WETH_CORE);
 //         console.log("GWC share/ETH:", rate);
 //     }
-//
+
 //     function test__FetchSusdePrice() public view {
 //         uint256 rate = usdeRateProvider.rate(SUSDE);
 //         console.log("SUSDE/USD rate:", rate);
 //     }
-//
+
 //     function test__FetchMtEthenaPrice() public view {
 //         uint256 rate = usdeRateProvider.rate(SDAISUSDE_CURVE);
 //         console.log("MtEthena/USD rate:", rate);
 //     }
-//
+
 //     function test__FetchYptsusdePrice() public view {
 //         uint256 rate = usdeRateProvider.rate(YPTSUSDE);
 //         console.log("YPTSUSDE/USD rate:", rate);
 //     }
-//
+
 //     function test__FetchGauntletPrimePrice() public view {
 //         uint256 rate = usdeRateProvider.rate(GAUNTLET_USDC_PRIME);
 //         console.log("Gauntlet USDC prime share rate:", rate);
@@ -88,69 +88,81 @@ address constant GAUNTLET_USDC_PRIME = 0xdd0f28e19C1780eb6396170735D45153D261490
 //     address private constant SWBTCWBTC_CURVE = 0x73e4BeC1A111869F395cBB24F6676826BF86d905;
 //     address private constant SWBTC = 0x8DB2350D78aBc13f5673A411D4700BCF87864dDE;
 //     address private constant GAUNTLET_WBTC_CORE = 0x443df5eEE3196e9b2Dd77CaBd3eA76C3dee8f9b2;
-//
+
 //     address immutable WRAPPED_ANGLES_S = 0xfA85Fe5A8F5560e9039C04f2b0a90dE1415aBD70;
 //     address immutable WRAPPED_S = 0x039e2fB66102314Ce7b64Ce5Ce3E5183bc94aD38;
 //     address immutable WRAPPED_ANGLES_S_RATE_PROVIDER = 0x2d087C0999223997b77cc33BE5E7E8eC79396cea;
-//
+//     address immutable SPECTRA_LP_WRAPPED_ANGLES_S = 0xEc81ee88906ED712deA0a17A3Cd8A869eBFA89A0;
+//     address immutable SILO_BORROWABLE_WS_DEPOSIT_TOKEN = 0x47d8490Be37ADC7Af053322d6d779153689E13C1;
+
 //     IRateProvider rateProvider;
 //     IRateProvider sxethRateProvider;
 //     IRateProvider swbtcRateProvider;
 //     IRateProvider anglesRateProvider;
-//
+
 //     function setUp() public {
-//         vm.createSelectFork(vm.rpcUrl("http://127.0.0.1:8545"));
+//         vm.createSelectFork(vm.rpcUrl("https://rpc.ankr.com/sonic_mainnet"));
 //         rateProvider = new AnglesLiquidVaultRateProvider();
 //         sxethRateProvider = new StakeeaseVaultRateProvider();
 //     }
-//
-//     function testToken0Price() public view {
-//         uint256 rate = rateProvider.rate(SUSDE);
-//         console.log("token0", rate);
-//     }
-//
-//     function testToken1Price() public view {
-//         uint256 rate = rateProvider.rate(SDAISUSDE_CURVE);
-//         console.log("token1", rate);
-//     }
-//
-//     function testToken2Price() public view {
-//         uint256 rate = rateProvider.rate(FRAXUSDE_CURVE);
-//         console.log("token2", rate);
-//     }
-//
-//     function testToken3Price() public view {
-//         uint256 rate = rateProvider.rate(USDEDAI_CURVE);
-//         console.log("token3", rate);
-//     }
-//
-//     function testToken4Price() public view {
-//         uint256 rate = rateProvider.rate(USDE_LPT_PENDLE_MARCH2025);
-//         console.log("token4", rate);
-//     }
-//
-//     function testInvalidParam() public {
-//         vm.expectRevert(bytes4(keccak256(bytes("RateProvider__InvalidParam()"))));
-//         rateProvider.rate(address(0x1));
-//     }
-//
-//     function testSxeth0() public view {
-//         uint256 rate = sxethRateProvider.rate(WSXETH);
-//         console.log(rate);
-//     }
-//
-//     function testSxeth1() public view {
-//         uint256 rate = sxethRateProvider.rate(SXETHWETH_CURVE);
-//         console.log(rate);
-//     }
-//
-//     function testSPrice() public view {
-//         uint256 rate = rateProvider.rate(WRAPPED_S);
-//         console.log(rate);
-//     }
-//
-//     function testWrappedSPrice() public view {
-//         uint256 rate = rateProvider.rate(WRAPPED_ANGLES_S);
+
+    // function testToken0Price() public view {
+    //     uint256 rate = rateProvider.rate(SUSDE);
+    //     console.log("token0", rate);
+    // }
+
+    // function testToken1Price() public view {
+    //     uint256 rate = rateProvider.rate(SDAISUSDE_CURVE);
+    //     console.log("token1", rate);
+    // }
+
+    // function testToken2Price() public view {
+    //     uint256 rate = rateProvider.rate(FRAXUSDE_CURVE);
+    //     console.log("token2", rate);
+    // }
+
+    // function testToken3Price() public view {
+    //     uint256 rate = rateProvider.rate(USDEDAI_CURVE);
+    //     console.log("token3", rate);
+    // }
+
+    // function testToken4Price() public view {
+    //     uint256 rate = rateProvider.rate(USDE_LPT_PENDLE_MARCH2025);
+    //     console.log("token4", rate);
+    // }
+
+    // function testInvalidParam() public {
+    //     vm.expectRevert(bytes4(keccak256(bytes("RateProvider__InvalidParam()"))));
+    //     rateProvider.rate(address(0x1));
+    // }
+
+    // function testSxeth0() public view {
+    //     uint256 rate = sxethRateProvider.rate(WSXETH);
+    //     console.log(rate);
+    // }
+
+    // function testSxeth1() public view {
+    //     uint256 rate = sxethRateProvider.rate(SXETHWETH_CURVE);
+    //     console.log(rate);
+    // }
+
+    // function testSPrice() public view {
+    //     uint256 rate = rateProvider.rate(WRAPPED_S);
+    //     console.log(rate);
+    // }
+
+    // function testWrappedSPrice() public view {
+    //     uint256 rate = rateProvider.rate(WRAPPED_ANGLES_S);
+    //     console.log(rate);
+    // }
+
+    // function testLPWrappedSPrice() public view {
+    //     uint256 rate = rateProvider.rate(SPECTRA_LP_WRAPPED_ANGLES_S);
+    //     console.log(rate);
+    // }
+
+//     function testSiloPrice() public view {
+//         uint256 rate = rateProvider.rate(SILO_BORROWABLE_WS_DEPOSIT_TOKEN);
 //         console.log(rate);
 //     }
 // }
